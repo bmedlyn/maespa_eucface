@@ -286,4 +286,28 @@ figure.sap.1()
 # cord.y <- c(et.pred[[1]]  + fit[[1]]$residuals,rev(et.pred[[1]]  - fit[[1]]$residuals))
 # polygon(cord.x,cord.y,col='skyblue',lty = 0)
 
+df <- readRDS("hr flux with met.rds")
+library(lubridate)
+df.jan <- df[month(df$Date) == c(12,1,2),]
 
+df.jan <- df[year(df$Date) == 2013,]
+with(df.jan,plot(volRing~VPD,pch=16,cex=0.6,col = "coral",xlim=c(0,9),ylim=c(0,0.3)))
+par(new=TRUE)
+
+library(mgcv)
+df.jan <- df.jan[order(df.jan$VPD),]
+fit.1 <- gam(volRing~s(VPD),data=df.jan)
+sap.pred <- predict(fit.1,data=df.jan$VPD)
+
+plot(sap.pred~df.jan$VPD,
+     type = "l",lwd = 2,col="red",xlim=c(0,9),
+     ylim=c(0,0.3),xlab="",ylab="",ann=FALSE,axes=FALSE)
+title("Hourly sap flow from heat pulse of Jan 2013 vs VPD")
+
+
+df.high.d <- df[df$VPD >5,]
+
+plot(df.high.d$volRing~df.high.d$TAIR,pch=16,col="navy",cex=0.8)
+# plot(df.high.d$volRing~df.high.d$TAIR)
+par(new=TRUE)
+plot(df.high.d$GPP.h~df.high.d$TAIR,ylim=c(0,0.8),pch=16,col="coral",cex=0.8)

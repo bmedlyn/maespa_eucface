@@ -1,8 +1,22 @@
-make_met <- function(Ring){
+make_met <- function(Ring,endDate = NULL){
+  
   ######################################################################################
+  # choose only the days with lai
+  DATES <- sm[[Ring]]$Date
+  
+  if(is.null(endDate)){
+    endDate <- DATES[length(DATES)]
+  } else {
+    endDate <- endDate
+  }
+ 
   # ROS weather data
-  ros15 <- downloadTOA5("ROS_WS_Table15")
-  ros05 <- downloadTOA5("ROS_WS_Table05")
+  ros15 <- downloadTOA5("FACE_R4_T1_Rain",
+                        startDate = DATES[1],
+                        endDate = endDate)
+  ros05 <- downloadTOA5("ROS_WS_Table05",
+                        startDate = DATES[1],
+                        endDate = endDate)
   
   ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,30)),
                                              PPFD=mean(PPFD_Avg, na.rm=TRUE),
@@ -83,20 +97,20 @@ write.table(summary(OriginalCO2),sprintf("R%summaryOfOriginalCO2.dat",Ring))
 
 #########################################################################################
 # ring is 1,2,...,6
-run_maespa_eucface <- function(ring, endDate=NULL,runfolder.path){
+run_maespa_eucface <- function(ring,runfolder.path, endDate=NULL,hourly.data){
   met <- list()
-  output <- list()
-  
-  met[[ring]] <-  make_met(ring)
+  # output <- list()
+
+  met[[ring]] <-  make_met(ring,endDate = endDate)
   # Smoothed LAI
   lais <- sm[[ring]]$LAIsmooth
-  
+  o <- getwd()
   setwd(runfolder.path)
   on.exit(setwd(o))
- 
+  # 
   # Calculate individual tree leaf areas.
   DATES <- format(sm[[ring]]$Date, "%d/%m/%y")
-
+  # 
   if(is.null(endDate)){
     endDate <- DATES[length(DATES)]
   } else {
@@ -110,26 +124,75 @@ run_maespa_eucface <- function(ring, endDate=NULL,runfolder.path){
     replacePAR("confile.dat", "iohrly","control", newval=1)
     } else {
     replacePAR("confile.dat", "iohrly","control", newval=0)
-  }
+    }
+  # change simulation for TUzet model and add parameteres
+  
+  replacePAR("confile.dat", "modelgs","model", newval=6)
+  
+  replacePAR("watpars.dat", "initwater","initpars", newval=c(0.055,0.055,0.23,0.4))
+  
+  replacePAR("watpars.dat", "minleafwp","plantpars", newval=-5)
+  
+  replacePAR("watpars.dat", "throughfall","wattfall", newval=1)
+  
+  replacePAR("watpars.dat", "maxstorage","wattfall", newval=0.2)
+  
+  replaceNameList("rootpars","watpars.dat", vals=list(rootrad =0.00001,
+                                                      rootdens = 0.5e6,
+                                                      rootmasstot = root.total[ring],
+                                                      nrootlayer = layers.num,
+                                                      fracroot = f.vec)
+                  )
+  
+  replaceNameList("laypars","watpars.dat", vals=list(nlayer=layers.num,
+                                                     laythick=diff(depth.v)/100,
+                                                     porefrac = c(0.42,0.42,0.4),
+                                                     fracorganic = c(0.8,0.2,0.1,0.02)
+                                                     ))
+  # par value from duursma 2008
+  replaceNameList("soilret","watpars.dat", vals=list(bpar=c(4.26,4.26,6.77),
+                                                     psie = c(-0.00036,-0.00036,-0.00132),
+                                                     ksat = c(79.8,79.8,25.2)
+                                                     ))
+  
+  # # try sand soil instead of sandy clay loam
+  replaceNameList("soilret","watpars.dat", vals=list(bpar=c(4.26),
+                                                     psie = c(-0.00132),
+                                                     ksat = c(40)
+                                                     ))
+
+  replaceNameList("bbtuz","phy.dat", vals=list(g0 =0.01,
+                                               g1=4,
+                                               sf=0.82,
+                                               psiv=-3.6,
+                                               nsides=1,
+                                               wleaf=0.02,
+                                               gamma=0,
+                                               VPDMIN=0.05
+                                               ))
   
   # Toss met data before which we don't have LAI anyway (makes files a bit smaller)
   met[[ring]] <- met[[ring]][met[[ring]]$Date >= min(sm[[ring]]$Date),]
   # write.csv(met[[ring]],"met_ListOfAllVaule.csv")
   metnodate <- subset(met[[ring]], select = -Date)
-  
+
   #fill missing value
   metnodate$PPT <- na.locf(metnodate$PPT)
   metnodate$PAR <- na.locf(metnodate$PAR)
   metnodate$TAIR <- na.locf(metnodate$TAIR)
   metnodate$RH <- na.locf(metnodate$RH)
   metnodate$CA <- na.locf(metnodate$CA)
-  
+
+  s.date <- format(min(met[[ring]]$Date),"%d/%m/%y")
+  e.date <- format(max(met[[ring]]$Date),"%d/%m/%y")
+  # s.date <- format(as.Date("2014/01/01"),"%d/%m/%y")
+  # e.date <- format(as.Date("2014/01/15"),"%d/%m/%y")
   # set date range
-  replacePAR("met.dat", "startdate", "metformat", format(min(met[[ring]]$Date),"%d/%m/%y"))
-  replacePAR("met.dat", "enddate", "metformat", format(max(met[[ring]]$Date),"%d/%m/%y"))
-  
+  replacePAR("met.dat", "startdate", "metformat", s.date)
+  replacePAR("met.dat", "enddate", "metformat", e.date)
+
   # place in met.dat
-  replacemetdata(metnodate, "met.dat", columns=names(metnodate), 
+  replacemetdata(metnodate, "met.dat", columns=names(metnodate),
                  newmetfile="met.dat", khrs=48, setdates=TRUE)
   
   # run maespa
@@ -141,16 +204,19 @@ run_maespa_eucface <- function(ring, endDate=NULL,runfolder.path){
 #   return(output)
 }
 
-eucGPP <- function(...){
+eucGPP <- function(hourly.data = FALSE,...){
   time.start <- Sys.time()
-  update.tree.f(...)
-  update.phy.f(...)
-  for (ring in 1:6){
+  # update.tree.f(...)
+  # update.phy.f(...)
+  for (ring in 1:1){
     
-    run_maespa_eucface(ring = ring,runfolder.path = file.path(o,sprintf("Rings/Ring%s",ring),"runfolder/"))
+    run_maespa_eucface(ring = ring,
+                       runfolder.path = file.path(o,sprintf("Rings/Ring%s",ring),"runfolder/"),
+                       endDate=as.Date("2013-03-26"),hourly.data = hourly.data)
 
   }
   time.used <- Sys.time() - time.start
   print(time.used)
+  return(time.used)
 }
 

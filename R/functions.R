@@ -294,7 +294,8 @@ getAllRings<-function(DayFlux,InputValue){
   DailyAverage.input <- list()
   DailyAverage.Ring <- list()
   for (i in 1:6){
-    DailyAverage.flux[[i]] <- summaryBy(totPs + absPAR + totLE1~DOY,data = DayFlux[[i]],
+    DailyAverage.flux[[i]] <- summaryBy(totPs + absPAR + totLE1~DOY,
+                                        data = DayFlux[[i]],
                                         FUN = sum,na.rm = TRUE)
     names(DailyAverage.flux[[i]]) <- c("DOY","GPP","absPAR","le")
     
