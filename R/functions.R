@@ -247,25 +247,52 @@ addpoly <- function(x,y1,y2,col=alpha("lightgrey",0.8),...){
 }
 
 
-Readmet <- function(ring){
-  fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
-  met <- read.table(fn,head=FALSE, skip=24)
-  attach(met)
-  names(met)<-c("CA","PPT","PAR","TAIR","RH")
-  return(met)
-}
+# Readmet <- function(ring){
+#   fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
+#   met <- read.table(fn,head=FALSE, skip=24)
+#   attach(met)
+#   names(met)<-c("CA","PPT","PAR","TAIR","RH")
+#   return(met)
+# }
 
 ReadInput <- function(ring){
-  fn <- sprintf("Rings/Ring%s/runfolder/met_ListOfAllVaule.csv",ring)
-  InputValue <- read.csv(fn)
-  return(InputValue)
+  # fn <- sprintf("Rings/Ring%s/runfolder/met_ListOfAllVaule.csv",ring)
+  # InputValue <- read.csv(fn)
+
+  con.path <- file.path(sprintf("Rings/Ring%s/runfolder",ring),"confile.dat")
+  con.ls <- readLines(con.path)
+
+  # substr(con.ls[grep("startdate", con.ls)],
+  #        "startdate = ","")
+
+ sd <- gsub("startdate = ","",
+     con.ls[grep("startdate", con.ls)])
+ sd <- gsub("'","",sd)
+
+ s.date <- as.Date(sd,"%d/%m/%y")
+ 
+ ed <- gsub("enddate = ","",
+            con.ls[grep("enddate", con.ls)])
+ ed <- gsub("'","",ed)
+ 
+ e.date <- as.Date(ed,"%d/%m/%y")
+ 
+ fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
+ 
+ met <- read.table(fn,head=FALSE, skip=24)
+
+ names(met)<-c("CA","PPT","PAR","TAIR","RH")
+ 
+ met$Date <- rep(seq(s.date,e.date,by="1 day"),each=48)
+ 
+return(met)
 }
 
 ReadDayFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/Dayflx.dat",ring)
   DayFlux <- read.table(fn,head=FALSE, skip=22)
-  attach(DayFlux)
-  names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm", 
+  # attach(DayFlux)
+  names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
                     "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
   return(DayFlux)
 }
@@ -273,18 +300,21 @@ ReadDayFlux <- function(ring){
 ReadHourFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/hrflux.dat",ring)
   DayFlux <- read.table(fn,head=FALSE, skip=35)
-  attach(DayFlux)
-#   names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm", 
-#                     "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
+  # attach(DayFlux)
+  names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
+                    "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
   return(DayFlux)
 }
-
 
 GetAverage <- function (x) {
   attach(x)
 
-  y <- data.table(x)[,list(CA=mean(CA, na.rm=TRUE),PAR = 1800*sum(PAR, na.rm=TRUE)*10^-6/4.57,
-                           RH = mean(RH, na.rm=TRUE),TAIR = mean(TAIR, na.rm=TRUE)),by = Date]
+  y <- data.table(x)[,list(CA=mean(CA, na.rm=TRUE),
+                           PAR = 1800*sum(PAR, na.rm=TRUE)*10^-6/4.57,
+                           RH = mean(RH, na.rm=TRUE),
+                           TAIR = mean(TAIR, na.rm=TRUE),
+                           Rain = 0.5*sum(PPT, na.rm=TRUE)),
+                     by = Date]
   return(y) 
 }
 
@@ -294,16 +324,16 @@ getAllRings<-function(DayFlux,InputValue){
   DailyAverage.input <- list()
   DailyAverage.Ring <- list()
   for (i in 1:6){
-    DailyAverage.flux[[i]] <- summaryBy(totPs + absPAR + totLE1~DOY,
+    DailyAverage.flux[[i]] <- summaryBy(totPs + totRf + absPAR + totLE1~DOY,
                                         data = DayFlux[[i]],
                                         FUN = sum,na.rm = TRUE)
-    names(DailyAverage.flux[[i]]) <- c("DOY","GPP","absPAR","le")
+    names(DailyAverage.flux[[i]]) <- c("DOY","GPP","Ra","absPAR","le")
     
-    DailyAverage.input[[i]]<-GetAverage(InputValue[[i]])
+    DailyAverage.input[[i]] <- GetAverage(InputValue[[i]])
     DailyAverage.input[[i]]$Ring <- i
     DailyAverage.input[[i]]$DOY <- c(1:nrow(DailyAverage.input[[i]])) 
     DailyAverage.input[[i]] <- subset(DailyAverage.input[[i]],DOY <= nrow(DailyAverage.flux[[i]]))
-    DailyAverage.Ring[[i]] <- merge(DailyAverage.flux[[i]] ,DailyAverage.input[[i]])
+    DailyAverage.Ring[[i]] <- merge(DailyAverage.flux[[i]] ,DailyAverage.input[[i]],by="DOY")
   }
   
 #   #merge data sets
@@ -464,5 +494,5 @@ get_soilwater <- function(how=c("mean","byring")){
   return(soilwd)
 }
 
-test <- readLines("confile.dat")
+# test <- readLines("confile.dat")
 

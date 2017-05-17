@@ -28,7 +28,9 @@ source("R/functions.R")
 source("R/maespa_functions.R")
 source("R/assign_trees.R")
 source("R/assign_phy.R")
+
 # LAI
+# get lai from hiev
 facelai <- downloadCSV("FACE_P0037_RA_GAPFRACLAI_20121026-20150322_L2.csv")
 facelai$Date <- as.Date(facelai$Date)
 

@@ -60,64 +60,84 @@ update.phy.f <- function(lai.test,lai.base){
                     vals=list(nolayers = 1,
                               noages = 1,
                               nodates = length(temp[[i]]$Date)))
+
+    
+    replaceNameList(namelist="Vcmaxcon",datfile=fn,
+                    vals=list(nolayers = 1,
+                              noages = 1,
+                              nodates = length(temp[[i]]$Date)))
+    
+    replaceNameList(namelist="rdpars",datfile=fn,
+                    vals=list(rtemp = 25,
+                              q10f = 0.067,
+                              dayresp = 1.0,
+                              effyrf = 0.4
+                    ))
+    
+    replaceNameList(namelist="RD",datfile=fn,
+                    vals=list(VALUES = 2, 
+                              DATES = '12/04/01'
+                              
+                    ))
+    
     
     # make plot
     ######
-    pdf("g1 vcmax jmax.pdf",width=12,height=9)
-    #plot g1 vcmax gmax for each ring####
-    par(mar=c(2,6,3,6), mfrow=c(3,1),cex = 0.8)
-    par(mar=c(0,6,2,6))
-    palette(c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
-    #Vcmax
-    with(temp[[1]],plot(Campaign,Vcmax,axes = FALSE,ylim = c(0,150),
-                        ylab = expression(italic(Vc)[max]~(paste(mu,mol~m^-2~s^-1))),
-                        xlab = " ",xaxt = 'n',col= "white"))
-    # axis(1,at=temp[[1]]$Campaign, lab=paste0(temp[[1]]$Campaign),col = "white")
-    axis(2,at=seq(0,150,50), lab=paste0(seq(0,150,50)),cex = 0.5)
-    abline(h=150)
-    abline(h=0)
-    abline(v=as.Date("2015-02-28"))
-    for(i in 1:6){
-      par(new = TRUE)
-      with(temp[[i]],plot(Campaign,Vcmax,axes = FALSE,ann = FALSE,
-                          xlab = " ",xaxt = 'n',
-                          ylim = c(0,150),type = "b",col= i))
-    }
-    legend("bottomright", xpd = TRUE,horiz = TRUE, bty = "n",cex = 1,
-           legend = strwrap(c("R1","R2","R3","R4","R5","R6"), width = 2),
-           lwd =2, col= c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
-    
-    #jmax
-    par(mar=c(2,6,0.5,6))
-    with(temp[[i]],plot(Campaign,Jmax,ylim = c(0,250),
-                        ylab = expression(italic(J)[max]~(paste(mu,mol~m^-2~s^-1))),
-                        axes = FALSE,xlab = " ",col= "white"))
-    axis(1,at=temp[[i]]$Campaign, lab=paste0(temp[[i]]$Campaign),col = "white")
-    axis(2,at=seq(0,250,50), lab=paste0(seq(0,250,50)),cex = 0.5)
-    abline(h=250)
-    abline(h=0)
-    abline(v=as.Date("2015-02-28"))
-    for(i in 1:6){
-      par(new = TRUE)
-      with(temp[[i]],plot(Campaign,Jmax,axes = FALSE,ann = FALSE,
-                          xlab = " ",
-                          ylim = c(0,250),type = "b",col= i))
-    }
-    legend("bottomright", xpd = TRUE,horiz = TRUE, bty = "n",cex = 1,
-           legend = strwrap(c("R1","R2","R3","R4","R5","R6"), width = 2),
-           lwd =2, col= c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
-    par(mar=c(6,6,2,6))
-    # G1
-    with(test,plot(g1Date,g1,ylim = c(0,6),
-                   ylab = expression(italic(g)[1]~(kPa^0.5)),
-                   xlab = " ",col = "red",axes = FALSE,type = "b"))
-    axis(1,at=test$g1Date, lab=paste0(test$g1Date),col = "white")
-    axis(2,at=seq(0,6,2), lab=paste0(seq(0,6,2)),cex = 0.5)
-    abline(h=0)
-    abline(h=6)
-    abline(v=as.Date("2013-11-24"))
-    #####
-    dev.off()
+    # pdf("g1 vcmax jmax.pdf",width=12,height=9)
+    # #plot g1 vcmax gmax for each ring####
+    # par(mar=c(2,6,3,6), mfrow=c(3,1),cex = 0.8)
+    # par(mar=c(0,6,2,6))
+    # palette(c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
+    # #Vcmax
+    # with(temp[[1]],plot(Campaign,Vcmax,axes = FALSE,ylim = c(0,150),
+    #                     ylab = expression(italic(Vc)[max]~(paste(mu,mol~m^-2~s^-1))),
+    #                     xlab = " ",xaxt = 'n',col= "white"))
+    # # axis(1,at=temp[[1]]$Campaign, lab=paste0(temp[[1]]$Campaign),col = "white")
+    # axis(2,at=seq(0,150,50), lab=paste0(seq(0,150,50)),cex = 0.5)
+    # abline(h=150)
+    # abline(h=0)
+    # abline(v=as.Date("2015-02-28"))
+    # for(i in 1:6){
+    #   par(new = TRUE)
+    #   with(temp[[i]],plot(Campaign,Vcmax,axes = FALSE,ann = FALSE,
+    #                       xlab = " ",xaxt = 'n',
+    #                       ylim = c(0,150),type = "b",col= i))
+    # }
+    # legend("bottomright", xpd = TRUE,horiz = TRUE, bty = "n",cex = 1,
+    #        legend = strwrap(c("R1","R2","R3","R4","R5","R6"), width = 2),
+    #        lwd =2, col= c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
+    # 
+    # #jmax
+    # par(mar=c(2,6,0.5,6))
+    # with(temp[[i]],plot(Campaign,Jmax,ylim = c(0,250),
+    #                     ylab = expression(italic(J)[max]~(paste(mu,mol~m^-2~s^-1))),
+    #                     axes = FALSE,xlab = " ",col= "white"))
+    # axis(1,at=temp[[i]]$Campaign, lab=paste0(temp[[i]]$Campaign),col = "white")
+    # axis(2,at=seq(0,250,50), lab=paste0(seq(0,250,50)),cex = 0.5)
+    # abline(h=250)
+    # abline(h=0)
+    # abline(v=as.Date("2015-02-28"))
+    # for(i in 1:6){
+    #   par(new = TRUE)
+    #   with(temp[[i]],plot(Campaign,Jmax,axes = FALSE,ann = FALSE,
+    #                       xlab = " ",
+    #                       ylim = c(0,250),type = "b",col= i))
+    # }
+    # legend("bottomright", xpd = TRUE,horiz = TRUE, bty = "n",cex = 1,
+    #        legend = strwrap(c("R1","R2","R3","R4","R5","R6"), width = 2),
+    #        lwd =2, col= c("chocolate2","cadetblue2","cadetblue3","chocolate3","chocolate4","cadetblue4"))
+    # par(mar=c(6,6,2,6))
+    # # G1
+    # with(test,plot(g1Date,g1,ylim = c(0,6),
+    #                ylab = expression(italic(g)[1]~(kPa^0.5)),
+    #                xlab = " ",col = "red",axes = FALSE,type = "b"))
+    # axis(1,at=test$g1Date, lab=paste0(test$g1Date),col = "white")
+    # axis(2,at=seq(0,6,2), lab=paste0(seq(0,6,2)),cex = 0.5)
+    # abline(h=0)
+    # abline(h=6)
+    # abline(v=as.Date("2013-11-24"))
+    # #####
+    # dev.off()
   }
   
   writeLines("phy updated")
