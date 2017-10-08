@@ -38,7 +38,7 @@ root.total <- top.30.accum/f.r.30
 # the fraction of root in each layer
 # root depth in cm
 
-depth.v <- c(0,10,50,seq(100,root.depth,100))
+depth.v <- c(0,50,seq(100,root.depth,100))
 
 f.accu.v <- c()
 

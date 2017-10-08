@@ -32,8 +32,9 @@ resp.vec <- c()
 # sum(annual.summary$gpp.half.hr[annual.summary$ring == 5])
 # sum(annual.summary$gpp.half.hr[annual.summary$ring == 6])
 
-out.df <- data.frame(Date = "2013-01-01 to 2014-01-01",
+out.df <- data.frame(Date = "2013-01-01 to 2013-12-31",
                      Ring = seq(1,6),
+                     c_treat = c("E","A","A","E","E","A"),
                      GPP.mg.m2.d = gpp.vec * 1000 /365,
                      Respiration.mg.m2.d = resp.vec * 1000/365)
 

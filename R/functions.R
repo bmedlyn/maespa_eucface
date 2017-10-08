@@ -72,9 +72,6 @@ makesmoothLAI <- function(dat, timestep="3 days", kgam=15, how=c("byring","mean"
   return(smoothlai)
 }
 
-
-
-
 #' Function for smoothplot. Probably not use otherwise.
 fitgam <- function(X,Y,dfr, k=-1, R=NULL){
   dfr$Y <- dfr[,Y]

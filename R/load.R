@@ -13,14 +13,20 @@ library(HIEv)
 library(plyr)
 library(dplyr)
 library(reshape)
+library(plantecophys)
+
 #prepare the folders
 o <- getwd()
 if(!dir.exists("download"))dir.create("download")
 if(!dir.exists("output"))dir.create("output")
+if(!dir.exists("output/maespa"))dir.create("output/maespa")
+if(!dir.exists("output/maespaVPD"))dir.create("output/maespaVPD")
+if(!dir.exists("output/maestra"))dir.create("output/maestra")
 if(!dir.exists("cache"))dir.create("cache")
 if(!dir.exists("Rings"))dir.create("Rings")
-download.path <- file.path("download/")
+
 # HIEv R package will download files to here:
+download.path <- file.path("download/")
 setToPath(download.path)
 
 # More functions

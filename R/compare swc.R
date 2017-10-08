@@ -1,4 +1,84 @@
-ring.sel <- 4
+# run tuzet modelfuncs####
+psil_e <- function(ELEAF, kl, psis){
+  
+  psil <- psis - ELEAF / kl
+  
+  psil[!is.finite(psil)] <- psis
+  
+  psil
+}
+
+fsig_tuzet <- function(psil, sf, psif){
+  (1+exp(sf*psif))/(1+exp(sf*(psif-psil)))
+}
+
+# find solution
+PhotosynTuzet_f <- function(g1,
+                            Ca,
+                            psis, 
+                            kl, 
+                            sf, 
+                            psif,
+                            psif.v,
+                            sf.v,
+                            ...){
+  
+  vn <- as.list(match.call())[-1]
+  if("gsmodel" %in% vn){
+    stop("Cannot define gsmodel with PhotosynTuzet.", .call=FALSE)
+  }
+  # objustive func
+  O <- function(psil, psis, kl, sf, psif, g1, Ca,
+                psif.v = psif.v,
+                sf.v = sf.v,
+                ...){
+    
+    p <- Photosyn(g1=g1, 
+                  Ca=Ca, 
+                  gsmodel="BBdefine", 
+                  BBmult=(g1/Ca)*fsig_tuzet(psil, sf, psif),
+                  # Jmax = 145 * fsig_tuzet(psil = psil,sf=10, psif=-3),
+                  # Vcmax = 90 * fsig_tuzet(psil = psil,sf=10, psif=-3),
+                  Jmax = 133 * fsig_tuzet(psil,sf.v, psif.v),
+                  Vcmax = 88 * fsig_tuzet(psil,sf.v, psif.v),
+                  # Jmax = 145,
+                  # Vcmax = 90,
+                  ...)
+    psilout <- psil_e(p$ELEAF, kl, psis)
+    
+    psil - psilout  # objective function: psil in = psil out.
+  }
+  
+  topt <- uniroot(O, c(-20,0), psis=psis, kl=kl, sf=sf, psif=psif, g1=g1, Ca=Ca,
+                  psif.v = psif.v,
+                  sf.v = sf.v,
+                  ...)
+  
+  p <- Photosyn(g1=g1, Ca=Ca, gsmodel="BBdefine", BBmult=(g1/Ca)*fsig_tuzet(topt$root, sf, psif), ...)
+  
+  p <- cbind(p, data.frame(PSIL=topt$root))
+  
+  return(p)
+}
+# 
+PhotosynTuzet <- function (g1 = 8, Ca = 400, psis = 0, kl = 2, sf = 3, psif = -2, 
+                           psif.v = -3,
+                           sf.v = 60,
+                           # sf.v = 0,
+                           ...) 
+{
+  m <- mapply(PhotosynTuzet_f, g1 = g1, Ca = Ca, psis = psis, 
+              kl = kl, sf = sf, psif = psif,
+              psif.v = psif.v,
+              sf.v = sf.v,
+              ..., SIMPLIFY = FALSE)
+  do.call(rbind, m)
+}
+
+
+
+##########
+ring.sel <- 4 # ring4 selected as most of the sensors working 
 
 # get teresa's spot measurements
 spots.df <- read.csv("Gimeno_spot_Eter_gasExchange6400.csv")
@@ -8,7 +88,7 @@ spots.r1.df <- spots.df
 # read daily fluxes############
 data.both.sap<- readRDS("mastra and sap.rds")
 # get start and end day
-con.ls <- readLines("Rings/Ring1/runfolder/confile.dat")
+con.ls <- readLines("Rings/Ring4/runfolder/confile.dat")
 
 sd <- gsub("startdate = ","",
            con.ls[grep("startdate", con.ls)])
@@ -59,9 +139,10 @@ swc.day.df$swc.75 <- swc.day.df$swc.75/100
 # sap.hr <- subset(sap.hr,select = c("DateHour","Ring","volRing"))
 
 # read watbal
+# ring.sel = 6
 fn <- sprintf("Rings/Ring%s/runfolder/watbal.dat",ring.sel)
 watbal <- read.table(fn,head=FALSE, skip=37)
-
+# checkwatbal(readwatbal(fn))
 # note the et here is evapotranspiration not just tranpiration
 names(watbal) <- c("day", "hour", "wsoil", "wsoilroot", "ppt", "canopystore",
                    "evapstore", "drainstore", "tfall", "et", "etmeas",
@@ -91,7 +172,8 @@ watbal.sum <- data.table(watbal)[,list(swc.1=mean(fracw1, na.rm=TRUE),
                                        ppt = sum(ppt, na.rm=TRUE),
                                        soil.w = mean(wsoil,na.rm = TRUE),
                                        r.soil.w = mean(wsoilroot,na.rm = TRUE),
-                                       soil.e = sum(soilevap,na.rm=TRUE)),
+                                       soil.e = sum(soilevap,na.rm=TRUE),
+                                       overflow = sum(overflow,na.rm=TRUE)),
                                  by = day]
 watbal.sum$Date <- seq(s.date,e.date,by="1 day")
 
@@ -106,6 +188,53 @@ data.both.sap.war <- data.both.sap.war[data.both.sap.war$Ring == paste0("R",ring
 
 data.both.sap.war$t.level <- cut(data.both.sap.war$TAIR,breaks = c(15,20,25,30,35))
 
+watbal$wsoil[2] - watbal$wsoil[nrow(watbal)]
+# watbal$wsoilroot[20] - watbal$wsoilroot[21]
+sum(watbal$ppt,na.rm=TRUE)
+sum(watbal$et,na.rm=TRUE)
+sum(watbal$discharge,na.rm=TRUE)/2 +
+sum(watbal$soilevap,na.rm=TRUE)
+
+watbal$soilevap
+watbal$discharge[20] +
+watbal$soilevap[20]
+
+which(watbal$ppt > 10)
+watbal$ppt[2333]
+watbal$et[2333]
+watbal$discharge[2333]
+watbal$soilevap[2333]
+watbal$wsoilroot[2333] - watbal$wsoilroot[2334] 
+
+
+
+watbal$ppt[25]
+watbal$et[25] +
+watbal$discharge[10] +
+watbal$soilevap[10]
+watbal$wsoilroot[10] - watbal$wsoilroot[11] 
+watbal$wsoil[10] - watbal$wsoil[11]
+
+
+# watbal$[2]
+
+diff.r.swc <- data.both.sap.war$r.soil.w[1]-data.both.sap.war$r.soil.w[nrow(data.both.sap.war)]
+diff.swc <- data.both.sap.war$soil.w[1]-data.both.sap.war$soil.w[nrow(data.both.sap.war)]
+total.rain <- sum(data.both.sap.war$ppt,na.rm = TRUE)
+total.drain <- sum(data.both.sap.war$discharge,na.rm = TRUE)
+total.trans <- sum(data.both.sap.war$Trans,na.rm = TRUE)
+total.se <- sum(data.both.sap.war$soil.e,na.rm = TRUE)
+total.of <- sum(data.both.sap.war$overflow,na.rm = TRUE)
+total.et <- sum(data.both.sap.war$et,na.rm = TRUE)
+
+total.drain + total.se
+# total.trans + 
+# data.both.sap.war$r.soil.w[2] - data.both.sap.war$r.soil.w[3]
+# data.both.sap.war$Trans[2] + data.both.sap.war$soil.e[2]
+# data.both.sap.war$discharge[2] + data.both.sap.war$soil.e[2] + data.both.sap.war$et[2]
+# data.both.sap.war$soil.e[2]
+# 
+# data.both.sap.war$soil.w[2] - data.both.sap.war$soil.w[3]
 
 #####
 # get hrly data##############
@@ -166,14 +295,16 @@ names(lai.r1.df) <- c("Date","LAI")
 
 data.all.war <- merge(data.all.war,lai.r1.df,by="Date")
 
-data.all.war$a.leaf.m <- data.all.war$Photo * data.all.war$LAI
-
+data.all.war$a.leaf.m <- data.all.war$Photo /12*10^6 /3600 * (data.all.war$LAI - 0.8) 
+range(data.all.war$GPP,na.rm=T)
 saveRDS(data.all.war,"all.hr.rds")
 
 # df = data.all.war
 #####
 # plot hourly##########
-plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
+plot.hrly.func <- function(df,
+                           pdf.fn = "maespa trans vs hp hrly.pdf",
+                           l.base = 0.8){
   on.exit(dev.off())
   pdf(pdf.fn,width = 8,height = 6)
 # df = data.all.war
@@ -200,6 +331,7 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
   title(sprintf("sap flow from %s to %s",as.character(s.date),as.character(e.date)))
 
   # scatter plot with r2
+  df$vpd.level <- cut(df$VPD,c(0,1,2,3,9))
   palette(c("cadetblue1","cyan2","darkgoldenrod1","brown3"))
   plot(df$trans~df$sap,
        xlim=c(0,0.3),
@@ -208,7 +340,7 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
        cex=0.8,
        xlab=expression(Sap~flow~from~heat~pulse~(L~hr^-1)),
        ylab=expression(Sap~flow~MAESPA~(L~hr^-1)),
-       col=df$t.level)
+       col=df$vpd.level)
   abline(a=0,b=1)
   fit.sap <- lm(df$trans~df$sap)
   abline(fit.sap,col="navy",lty="dashed")
@@ -216,11 +348,12 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
   mylabel <- bquote(italic(R)^2 == .(format(adj.r.sqrt, digits = 2)))
   text(x = 0.2, y = 0.3, labels = mylabel)
   
-  legend("bottomright",legend = levels(df$t.level),
+  legend("bottomright",
+         legend = levels(df$vpd.level),
          col=palette(),
          pch=16,
          bty='n',
-         title = "Tair")
+         title = "VPD")
   
   # tran vs vpd
   plot(df$trans~df$VPD,
@@ -276,13 +409,12 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
   legend("topright",legend = c("MAESPA","Heat Pulse"),pch=16,
          col=c("red","blue"),bty='n')
   title("Trans vs Tair (Hourly)")
-  
-  
- 
+
 
   # photo vs t##############
   df.sort <- df[order(df$TAIR),]
   df.sort$a.leaf.m[df.sort$a.leaf.m < 1] <- NA
+  # df.sort$photo <- df.sort$a.leaf.m / 12*10^6 /3600 /(df.sort$LAI - l.base)
   plot(df.sort$a.leaf.m~df.sort$TAIR,
        xlab=expression("T"[air]~(degree*C)),
        ylab=expression("Assimilation rate"~(mu*mol~C~m^-2~leaf~s^-1)),
@@ -308,7 +440,7 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
   maespa.pre <- predict(maespa.fit,data=df.sub$TAIR)
   plot(maespa.pre~(df.sub$TAIR),
        type="l",
-       lwd = 2,
+       lwd = 1,
        col="darkred",
        xlab="",
        ylab="",
@@ -330,6 +462,29 @@ plot.hrly.func <- function(df,pdf.fn = "maespa trans vs hp hrly.pdf"){
   legend("topright",legend = c("MAESPA","Spots"),pch=16,
          col=c("darkred","navy"),bty='n')
   title("Photo vs Tair (Hourly)")
+  
+  
+  # plot photo vs vpd
+  df.sort <- df[order(df$VPD),]
+  df.sort$a.leaf.m[df.sort$a.leaf.m < 1] <- NA
+  plot(df.sort$a.leaf.m~df.sort$VPD,
+       xlab=expression("VPD (kPa)"),
+       ylab=expression("Assimilation rate"~(mu*mol~C~m^-2~leaf~s^-1)),
+       xlim=c(0,7),
+       ylim=c(0,40),
+       col="darksalmon",
+       pch=16,
+       cex=0.2)
+  par(new=1)
+  plot(spots.r1.df$Photo~spots.r1.df$VpdL,
+       xlab=" ",
+       ylab=" ",
+       xlim=c(0,7),
+       ylim=c(0,40),
+       col="dodgerblue4",
+       pch=16,
+       cex=0.5
+  )
   
   # plot swc############
 par(mfrow=c(3,1),mar=c(0,5,1,1))
@@ -433,11 +588,12 @@ par(mfrow=c(3,1),mar=c(0,5,1,1))
   mtext("PPT (mm/hr)",side = 2,line = 3,col="deepskyblue",cex=0.9)
 
 }
-# df = data.all.war[hour(data.all.war$DateTime) %in% seq(7,17),]
+# df = data.all.war[hour(data.all.war$DateTime) %in% seq(9,15),]
 # df = df[df$Ring == "R1",]
+# df = data.all.war[data.all.war$PAR >1,]
 plot.hrly.func(data.all.war)
 
-plot(Photo~DateTime,data=data.all.war[data.all.war$Date == data.all.war$Date[100]],type="l")
+range(data.all.war$PAR)
 
 # plot.hrly.func(data.all.war)
 # sum(df$sap)/2
@@ -630,24 +786,47 @@ library(plantecophys)
 spots <- read.csv("Gimeno_spot_Eter_gasExchange6400.csv")
 
 spots <- spots[which(is.na(spots$Photo) == FALSE),]
-modelled <- Photosyn(VPD = spots$VpdL, 
-                     Ca = spots$CO2R, 
-                     PPFD = spots$PARi, 
-                     Tleaf = spots$Tleaf,
-                     gsmodel = c("BBOpti"), 
-                     g1 = 4,
-                     theta = 0.4, 
-                     Jmax = 133, 
-                     Vcmax = 88, 
-                     Rd = 0.92, 
-                     Q10 = 0.067,
-                     TrefR = 25, 
-                     EaV = 47590, 
-                     EdVC = 2e+05, 
-                     delsC = 640, 
-                     EaJ = 37259,
-                     EdVJ = 2e+05, 
-                     delsJ = 640)
+
+spots <- spots[spots$CO2_Treat2 == "A",]
+# modelled <- Photosyn(VPD = spots$VpdL, 
+#                      Ca = spots$CO2R, 
+#                      PPFD = spots$PARi, 
+#                      Tleaf = spots$Tleaf,
+#                      gsmodel = c("BBOpti"), 
+#                      g1 = 4,
+#                      theta = 0.4, 
+#                      Jmax = 133, 
+#                      Vcmax = 88, 
+#                      Rd = 0.92, 
+#                      Q10 = 0.067,
+#                      TrefR = 25, 
+#                      EaV = 47590, 
+#                      EdVC = 2e+05, 
+#                      delsC = 640, 
+#                      EaJ = 37259,
+#                      EdVJ = 2e+05, 
+#                      delsJ = 640)
+modelled <- PhotosynTuzet(g1 = 15, 
+                          psis = -0.01,
+                          VPD = spots$VpdL, 
+                          Ca = spots$CO2R,
+                          PPFD = spots$PARi,
+                          Tleaf = spots$Tleaf,
+                          
+                          kl = 2.238867,
+                          sf = 24.728773,
+                          psif = -3.990483,
+                          
+                          psif.v = 0,
+                          sf.v = 0,
+
+                          EaV = 74189,
+                          EdVC = 2e+05,
+                          delsC = 640.2658,
+                          EaJ = 39513,
+                          EdVJ = 2e+05,
+                          delsJ = 641.9892
+)
 
 plot(modelled$ALEAF~modelled$Tleaf,
      xlim=c(15,40),ylim=c(5,40),
@@ -672,7 +851,7 @@ photo.syn <- Photosyn(VPD = data.all.war$VPD,
                       Jmax = 113, 
                       Vcmax = 82, 
                       Rd = 0.92, 
-                      Q10 = 0.067,
+                      Q10 = 2,
                       TrefR = 25, 
                       EaV = 47590, 
                       EdVC = 2e+05, 
@@ -757,9 +936,62 @@ peaked <- function(k25 = 113, Ea = 47.59, Ed = 200,
 
 
 t.vec <- seq(5,40)
-tk.vec <- 298.15 + t.vec
+tk.vec <- 273 + t.vec
 
 
 j.vec <- peaked(k25 = 150,Ea = 37.27,TTK = tk.vec)
 plot(j.vec~t.vec)
 dev.off()
+# 
+data.summer <- data.all.war[month(data.all.war$Date) %in% c(12,1,2),]
+# 
+# plot(Photo~HOUR,
+#      data = data.summer)
+# 
+data.summer.sum <- summaryBy(Photo~HOUR,
+                             data = data.summer,
+                             FUN = c(mean),
+                             na.rm=TRUE)
+
+data.other <- data.all.war[!(month(data.all.war$Date) %in% c(12,1,2)),]
+# # # 
+data.other.sum <- summaryBy(Photo~HOUR,
+                            data = data.other,
+                            FUN = c(mean),
+                            na.rm=TRUE)
+
+pdf("summer gpp.pdf",width = 10,height = 12)
+par(mfrow=c(2,1),
+    mar=c(5,5,2,2))
+plot(Photo.mean~HOUR,
+     data = data.summer.sum,
+     type="l")
+title("Summer average over 2013-2014")
+
+plot(Photo.mean~HOUR,
+     data = data.other.sum,
+     type="l")
+title("Other time average over 2013-2014")
+dev.off()
+
+
+# plot(Photo~DateTime,data=data.all.war[data.all.war$Date == data.all.war$Date[550]],type="l")
+
+# plot(Photo~HOUR,data=data.summer,type="p",pch=16)
+
+test.df <- data.all.war
+
+df.sub <- data.all.war[,c("HOUR","Photo")]
+
+temp.ls <- list()
+for (i in 1:length(unique(df.sub$HOUR))){
+  temp.ls[[i]] <- mean(df.sub$Photo[df.sub$HOUR == i],na.rm = T)
+}
+bar.m <- do.call(cbind,temp.ls)
+
+# barplot((bar.m),
+        # names.arg = paste0(seq(1,24)),ylab="Photo")
+
+plot(data.all.war$trans~data.all.war$VPD,)
+par(new=TRUE)
+plot(data.all.war$sap~data.all.war$VPD)

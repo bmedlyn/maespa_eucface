@@ -29,12 +29,13 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
                         startDate = startDate,
                         endDate = endDate)
   
-  ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,30)),
+  ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,15)),
                                              PPFD=mean(PPFD_Avg, na.rm=TRUE),
                                              Tair=mean(AirTC_Avg, na.rm=TRUE),
                                              RH=mean(RH, na.rm=TRUE)))
-  ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,30)),
+  ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,15)),
                                              Rain=sum(Rain_mm_Tot, na.rm=TRUE)))
+  
   ros <- merge(ros15_30, ros05_30)
 
   #replace below zero PAR with zero 
@@ -114,7 +115,12 @@ OriginalCO2 <- CO2Data[myvars]
 
 #########################################################################################
 # ring is 1,2,...,6
-run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,hourly.data=FALSE){
+run_maespa_eucface <- function(ring,runfolder.path,
+                               startDate= NULL,
+                               endDate=NULL,
+                               hourly.data=FALSE,
+                               model.num,
+                               vc.vpd){
 
   o <- getwd()
   setwd(runfolder.path)
@@ -174,6 +180,8 @@ run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,
   
   replacePAR("met.dat", "enddate", "metformat", format(as.Date(endDate), "%d/%m/%y"))
   
+  replacePAR("met.dat", "khrsperday", "metformat", 96)
+  
   if(hourly.data == TRUE) {
     replacePAR("confile.dat", "iohrly","control", newval=1)
     } else {
@@ -183,13 +191,13 @@ run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,
   replacePAR("confile.dat", "ioresp","control", newval=1)
 
   # change simulation for TUzet model and add parameteres
-  replacePAR("confile.dat", "modelgs","model", newval=6)
+  replacePAR("confile.dat", "modelgs","model", newval=model.num)
   # initial swc from Hiev 
   replacePAR("watpars.dat", "initwater","initpars", newval=c(swc.df$swc.0.30[1]/100,swc.df$swc.30.75[1]/100))
   # throughfall from Teresa's draft should be calculated from Tfall and rainfall measurements
   replacePAR("watpars.dat", "throughfall","wattfall", newval = 0.96)
   # Need to guess from throughfall and rainfall
-  replacePAR("watpars.dat", "maxstorage","wattfall", newval = 0)
+  replacePAR("watpars.dat", "maxstorage","wattfall", newval = 0.2)
   
   # root propery based on Juan's data set
   # look at warpar.R for details
@@ -207,8 +215,11 @@ run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,
   # plant hydro conductance
   replaceNameList("plantpars","watpars.dat", vals=list(MINLEAFWP = -6,
                                                        MINROOTWP = -5,
-                                                       PLANTK = 7 #leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
+                                                       PLANTK = 2.238867 #fit to Drake 2017; leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
   ))
+  
+
+  
   
   # key is porefraction which doesn't really change according to Cosby 1984
   replaceNameList("laypars","watpars.dat", vals=list(nlayer=layers.num + 6,
@@ -234,19 +245,7 @@ run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,
                                                      psie = c(-0.00036,-0.00132),
                                                      ksat = c(79.8,25.2)
                                                      ))
-  #gs paramteres for tuzet
-  replaceNameList("bbtuz","phy.dat", vals=list(g0 =0,
-                                               # g1 = 3.15, #zhou 2013
-                                               # sf = 1.82, #from zhou 2013
-                                               # psiv=-1.66, #from zhou 2013
-                                               g1 = 4.275, #Teresa
-                                               sf = 0.82, #from p50 data brendon
-                                               psiv=-3.6,#from p50 data brendon
-                                               nsides=1,
-                                               wleaf=0.02,
-                                               gamma=0,
-                                               VPDMIN=0.05
-                                               ))
+
 
   # Toss met data before which we don't have LAI anyway (makes files a bit smaller)
   met[[ring]] <- met[[ring]][met[[ring]]$Date >= min(sm[[ring]]$Date),]
@@ -271,23 +270,32 @@ run_maespa_eucface <- function(ring,runfolder.path,startDate= NULL,endDate=NULL,
   
   # run maespa
   print(sprintf("Ring %s start",ring))
-  shell("maespa64.exe")
+  if(identical(TRUE,vc.vpd)){
+    shell("maespaTest.exe")
+  }else{
+    shell("maespa64.exe")
+  }
+  
   print(sprintf("Ring %s finished",ring))
   # read output
 #   output[[ring]] <- readdayflux()
 #   return(output)
 }
-
-eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:6,...){
+#####
+eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:6,model.sel = 4,vc.vpd = FALSE,
+                   ...){
   time.start <- Sys.time()
-  update.tree.f(...)
+  # update.tree.f(...)
   update.phy.f(...)
   for (ring in rings){
     
     run_maespa_eucface(ring = ring,
                        runfolder.path = file.path(o,sprintf("Rings/Ring%s",ring),"runfolder/"),
                        hourly.data = hourly.data,
-                       startDate= startDate,endDate = endDate)
+                       startDate= startDate,
+                       endDate = endDate,
+                       model.num = model.sel,
+                       vc.vpd = vc.vpd)
 
   }
   time.used <- Sys.time() - time.start
