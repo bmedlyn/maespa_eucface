@@ -132,10 +132,12 @@ get.t.response.func <- function(data.path){
   return(see)
 }
 
-
 # function that update phy.dat#####
 update.phy.f <- function(lai.test,lai.base){
   # data need to be on hiev
+  # get vcmax jmax t response$####
+  t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
+  
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
     euc.acis.df <- read.csv("data/P0020_EucFACE-Aci_MASTER.csv")
@@ -143,11 +145,16 @@ update.phy.f <- function(lai.test,lai.base){
   # data clean
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo < 50,]
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
-  euc.acis.df$Curve_Number[euc.acis.df$Cond < 0]
-  
-  # fit curves
+  # euc.acis.df$Curve_Number[euc.acis.df$Cond < 0]
+
+ 
+
   library(plantecophys)
-  euc.fit <- fitacis(euc.acis.df,group="Curve_Number",Tcorrect=F)
+  euc.fit <- fitacis(euc.acis.df,group="Curve_Number",Tcorrect=TRUE,
+                     EaV = t.response.df["Ea","Vcmax"]*1000, EdVC = 200000,
+                     delsC = t.response.df["delS","Vcmax"]*1000, 
+                     EaJ = t.response.df["Ea","Jmax"]*1000, 
+                     EdVJ = 2e+05, delsJ = t.response.df["delS","Jmax"]*1000)
   euc.coef <- coef(euc.fit)
   euc.coef$Tleaf <- sapply(euc.fit, function(x)mean(x$df$Tleaf))
   
@@ -225,8 +232,7 @@ update.phy.f <- function(lai.test,lai.base){
   
   rd.t.df <- fit.rd.t.function("download/euc data/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
   
-  # get vcmax jmax t response$####
-  t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
+
   
   # get g1######
   #g1 from Teresa's 2015 paper need to be on hiev
