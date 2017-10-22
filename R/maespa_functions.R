@@ -15,7 +15,7 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   } else {
     endDate <- as.Date(endDate)
   }
- 
+
   # ROS weather data
   # "FACE_R4_T1_Rain"
   # instead of ecuface met data, the model uses met data from ROS
@@ -28,6 +28,19 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   ros05 <- downloadTOA5("ROS_WS_Table05",
                         startDate = startDate,
                         endDate = endDate)
+  # startDate = "2014-01-01"
+  # endDate = "2014-01-02"
+  # fcp <- downloadTOA5(c("FACE","FCPLOGG"), startDate=startDate, endDate=endDate,
+  #                     maxnfiles=500, tryoffline=TRUE, quiet=TRUE)
+  # 
+  # temp1 <- suppressWarnings(thicken(fcp, "30 min", by="DateTime", colname="DateTime2"))
+  # temp2 <- mutate(temp1,Ring = Plot)
+  # fcp2 <- subset(temp2[temp2$Ring == Ring,],select=c("DateTime2","WindSpeed","IRGA.Pressure"))
+  #   
+  # fcp2.sum <- summaryBy(WindSpeed+IRGA.Pressure~DateTime2,
+  #                       data=fcp2,FUN=mean,na.rm=TRUE,keep.names=TRUE)
+  # 
+  # names(fcp2.sum) <- c("DateTime","WindSpeed", "air_pressure")
   
   ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,15)),
                                              PPFD=mean(PPFD_Avg, na.rm=TRUE),
@@ -36,17 +49,17 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,15)),
                                              Rain=sum(Rain_mm_Tot, na.rm=TRUE)))
   
-  ros <- merge(ros15_30, ros05_30)
-
+  ros.1 <- merge(ros15_30, ros05_30)
+  # ros <- merge(ros.1, fcp2.sum)
+  ros <- ros.1
   #replace below zero PAR with zero 
   ros$PPFD[ros$PPFD<0] <- 0
 
   ######################################################################################
   #get CO2
-  # get real co2 data from hiev
-  #CO2data <- downloadTOA5("fcplogg", startDate="2012-9-10", endDate="2015-5-10")
-  #"DateTime"    "Concentration.1Min"  
-
+  # startDate = "2014-01-01"
+  # endDate = "2014-01-02"
+  # Ring = 1
   fn <- sprintf("R%s_FCPLOGG_R",Ring)
   Rawdata <- downloadTOA5(fn, 
                           maxnfiles = 600, 
@@ -65,32 +78,30 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   #set limits (350-1000) for CA *baddata reports can be found in separet files
   CO2Data$Concentration.1Min[CO2Data$Concentration.1Min > 1000] <- 1000
   CO2Data$Concentration.1Min[CO2Data$Concentration.1Min < 350] <- 350
-  
-#Select original Co2data and save for comparition
-myvars <- c("DateTime","Base.Concentration","Set.Point.Concentration",
-            "Concentration.1Min","Concentration.5Min")
 
-OriginalCO2 <- CO2Data[myvars]
-
-# write.table(summary(OriginalCO2),sprintf("R%summaryOfOriginalCO2.dat",Ring))
   ################################################################################################################
   CO2Data$DateTime <- nearestTimeStep(CO2Data$DateTime, 30, "ceiling")
 
-  sumCO2 <- data.table(CO2Data)[,list(CO2=mean(Concentration.1Min, na.rm=TRUE)),
+  sumCO2 <- data.table(CO2Data)[,list(CO2=mean(Concentration.1Min, na.rm=TRUE),
+                                      PRESS = mean(IRGA.Pressure, na.rm=TRUE),
+                                      WindSpeed=mean(WindSpeed, na.rm=TRUE)
+                                      ),
                                 by = DateTime]
-  
+  # plot(PRESS~DateTime,data=sumCO2)
   # Fill missing values
   library(zoo)
   sumCO2$CO2 <- na.locf(sumCO2$CO2)
   
+  sumCO2$WindSpeed[sumCO2$WindSpeed < 0] <- NA
+  sumCO2$WindSpeed <- na.locf(sumCO2$WindSpeed)
+  
+  sumCO2$PRESS[sumCO2$PRESS < 900] <- NA
+  sumCO2$PRESS[sumCO2$PRESS > 1100] <- NA
+  sumCO2$PRESS <- na.locf(sumCO2$PRESS)
+  sumCO2$PRESS <- sumCO2$PRESS * 100 #times 100 to convert unit from hPa to Pa
   #write the CO2 into a RDS file
   saveRDS(sumCO2,sprintf("R%sCO230Min.rds",Ring))
   
-  # # final issue!
-  # m <- data.frame(DateTime=seq(ymd_hm(paste0(startDate,"00:00")), 
-  #                              ymd_hm(paste0(endDate,"23:30")),
-  #                              by="30 min"))
-  # CaData <- merge(m, sumCO2)
   CaData <- sumCO2
   ######################################################################################
   #merge all the data 
@@ -103,11 +114,13 @@ OriginalCO2 <- CO2Data[myvars]
   met <- data.frame(DateTime=seq.POSIXt(min(ros$DateTime), max(ros$DateTime), by="30 min"))
   met <- merge(met, AllData, all=TRUE)
   
-  
+  met$WindSpeed <- na.locf(met$WindSpeed)
+  met$PRESS <- na.locf(met$PRESS)
   # RH is 0-1
   met$RH <- met$RH / 100
   
-  names(met) <- c("Date","CA","PPT","PAR","TAIR","RH")
+  names(met) <- c("Date","CA","WIND","PRESS",
+                  "PPT","PAR","TAIR","RH")
   met$Date <- as.Date(met$Date)
   
   return(met)
@@ -271,7 +284,8 @@ run_maespa_eucface <- function(ring,runfolder.path,
   # run maespa
   print(sprintf("Ring %s start",ring))
   if(identical(TRUE,vc.vpd)){
-    shell("maespaTest.exe")
+    # shell("maespaTest.exe")
+    shell("intelMaespa.exe")
   }else{
     shell("maespa64.exe")
   }

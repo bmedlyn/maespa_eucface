@@ -3,6 +3,14 @@ cat("\014")
 # load and set the model####
 source("R/load.R")
 source("R/warpar.R")
+for (i in 1:6){
+  #assign g1
+  
+  fn <- sprintf("Rings/Ring%s/runfolder/str.dat",i)
+  replaceNameList(namelist="aero",datfile=fn,
+                  vals=list(extwind = 0.0)
+  )
+}
 #test - lai sensitivity test
 test <- 1.0
 # lai in the model = measured - base 
@@ -21,12 +29,12 @@ for ( i in 1:6){
 }
 
 # chose gs model: 4 is optbb; 6 is tuzet
-gs.model.num <- 6
+gs.model.num <- 4
 vc.vpd <- TRUE
 # fire up the model####
 # make sure you want to do this first
-time.used <- eucGPP(startDate = as.Date("2013-10-01"),
-                    endDate = as.Date("2014-10-01"),
+time.used <- eucGPP(startDate = as.Date("2013-01-01"),
+                    endDate = as.Date("2017-01-01"),
                     lai.test = test,
                     lai.base = base,
                     rings = 1:6,
@@ -45,7 +53,7 @@ for (i in 1:6){
   # met[[i]] <- Readmet(i)
   input[[i]] <- ReadInput(i)
   flux[[i]] <- ReadDayFlux(i)
-  hr.flux[[i]] <- ReadHourFlux(i)
+  # hr.flux[[i]] <- ReadHourFlux(i)
   
 }
 
@@ -80,102 +88,107 @@ data.both.sap <- merge(data.sap,sap.T,by = intersect(names(data.sap), names(sap.
 saveRDS(data.both.sap,"mastra and sap.rds")
 data.both.sap<- readRDS("mastra and sap.rds")
 
-# get hrly data####
+# # get hrly data####
+# #
+# col.nm <- c("DOY","Tree","Spec","HOUR","hrPAR",
+#             "hrNIR","hrTHM","hrPs","hrRf","hrRmW",
+#             "hrLE","LECAN","Gscan","Gbhcan","hrH",
+#             "TCAN","ALMAX","PSIL","PSILMIN","CI",
+#             "TAIR","VPD","PAR","ZEN","AZ")
 # 
-col.nm <- c("DOY","Tree","Spec","HOUR","hrPAR",
-            "hrNIR","hrTHM","hrPs","hrRf","hrRmW",
-            "hrLE","LECAN","Gscan","Gbhcan","hrH",
-            "TCAN","ALMAX","PSIL","PSILMIN","CI",
-            "TAIR","VPD","PAR","ZEN","AZ")
-
-hr.sum <- list()
-for (i in 1:6){
-  
-  names(hr.flux[[i]]) <- col.nm
-  hr.flux[[i]]$time <- ceiling(hr.flux[[i]]$HOUR/2)
-  # here we get the ring average and divided by ground area
-  # Photo mumol m-2 ground s-1
-  # trans l/hr
-  # par MJ m-2 hr-1
-  # vpd kpa
-  # TAIR celsius
-  # all the sum need to be divided by 2 as the fluxes are half hourly
-
-  hr.sum[[i]] <- data.table(hr.flux[[i]])[,list(Photo = sum((hrPs) * 1800, na.rm=TRUE) * 10^-6 * 12/ (pi*12.5^2),
-                                                NPP = sum((hrPs + hrRf) * 1800, na.rm=TRUE) * 10^-6 * 12/ (pi*12.5^2),
-                                                # PAR = 4 * mean(PAR, na.rm=TRUE) * 10-6 * 3600,
-                                                # hrle is on half-hourly base and is for each tree
-                                                trans = sum(hrLE,na.rm = TRUE) * 1800 * 10^-3 * 18 * 10^-3 / (pi*12.5^2) ,
-                                                VPD = mean(VPD, na.rm=TRUE),
-                                                # TAIR = mean(TAIR, na.rm=TRUE)
-                                                psiL =mean(PSIL, na.rm=TRUE)
-                                                ),
-                                          by = c("DOY","time")]
-}
-con.ls <- readLines("Rings/Ring1/runfolder/confile.dat")
-
-sd <- gsub("startdate = ","",
-           con.ls[grep("startdate", con.ls)])
-sd <- gsub("'","",sd)
-sd <- as.Date(sd,"%d/%m/%y")
-
-ed <- gsub("enddate = ","",
-           con.ls[grep("enddate", con.ls)])
-ed <- gsub("'","",ed)
-ed <- as.Date(ed,"%d/%m/%y")
-
-s.date <- as.POSIXlt(sprintf("%s 00:00",sd),tz="UTC")
-e.date <- as.POSIXlt(sprintf("%s 23:30",ed),tz="UTC")
-
-in.hr.ls <- list()
-for (i in 1:6){
-  
-  input[[i]]$DateTime <- rep(seq(s.date,e.date,by="hour"),each=2)
-
-  in.hr.ls[[i]] <- data.table(input[[i]])[,list(CA=mean(CA, na.rm=TRUE),
-                                                PAR = 3600*mean(PAR, na.rm=TRUE)*10^-6/4.57,
-                                                RH = mean(RH, na.rm=TRUE),
-                                                TAIR = mean(TAIR, na.rm=TRUE)),
-                                          by = c("DateTime")]
-
-}
-
-in.out.hrly.ls <- list()
-
-for (i in 1:6){
-
-  # input[[i]]$PAR <- input[[i]]$PAR*1800*10^-6/4.57
-  hr.sum[[i]]$DateTime <- rep(seq(s.date,e.date,by="1 hour"),each=1)
-  in.out.hrly.ls[[i]] <- merge(in.hr.ls[[i]],hr.sum[[i]],by="DateTime")
-  in.out.hrly.ls[[i]]$Ring <- sprintf("R%s",i)
-}
-
-in.out.hrly.df <- do.call(rbind,in.out.hrly.ls)
-
-sap.hr <- readRDS("sap_hrly.rds")  
-
-sap.hr <- subset(sap.hr,select = c("DateHour","Ring","volRing"))
-names(sap.hr) <- c("DateTime","Ring","sap")
-data.both.sap.hr <- merge(in.out.hrly.df,sap.hr,by = intersect(names(in.out.hrly.df), names(sap.hr)))
-
-saveRDS(data.both.sap.hr,"mastra and sap hr.rds")
-
-source("R/compare swc.R")
+# hr.sum <- list()
+# for (i in 1:6){
+# 
+#   names(hr.flux[[i]]) <- col.nm
+#   hr.flux[[i]]$time <- ceiling(hr.flux[[i]]$HOUR/2)
+#   # here we get the ring average and divided by ground area
+#   # Photo mumol m-2 ground s-1
+#   # trans l/hr
+#   # par MJ m-2 hr-1
+#   # vpd kpa
+#   # TAIR celsius
+#   # all the sum need to be divided by 2 as the fluxes are half hourly
+# 
+#   hr.sum[[i]] <- data.table(hr.flux[[i]])[,list(Photo = sum((hrPs) * 1800, na.rm=TRUE) * 10^-6 * 12/ (pi*12.5^2),
+#                                                 NPP = sum((hrPs + hrRf) * 1800, na.rm=TRUE) * 10^-6 * 12/ (pi*12.5^2),
+#                                                 # PAR = 4 * mean(PAR, na.rm=TRUE) * 10-6 * 3600,
+#                                                 # hrle is on half-hourly base and is for each tree
+#                                                 trans = sum(hrLE,na.rm = TRUE) * 1800 * 10^-3 * 18 * 10^-3 / (pi*12.5^2) ,
+#                                                 VPD = mean(VPD, na.rm=TRUE),
+#                                                 # TAIR = mean(TAIR, na.rm=TRUE)
+#                                                 psiL =mean(PSIL, na.rm=TRUE)
+#                                                 ),
+#                                           by = c("DOY","time")]
+# }
+# con.ls <- readLines("Rings/Ring1/runfolder/confile.dat")
+# 
+# sd <- gsub("startdate = ","",
+#            con.ls[grep("startdate", con.ls)])
+# sd <- gsub("'","",sd)
+# sd <- as.Date(sd,"%d/%m/%y")
+# 
+# ed <- gsub("enddate = ","",
+#            con.ls[grep("enddate", con.ls)])
+# ed <- gsub("'","",ed)
+# ed <- as.Date(ed,"%d/%m/%y")
+# 
+# s.date <- as.POSIXlt(sprintf("%s 00:00",sd),tz="UTC")
+# e.date <- as.POSIXlt(sprintf("%s 23:30",ed),tz="UTC")
+# 
+# in.hr.ls <- list()
+# for (i in 1:6){
+# 
+#   input[[i]]$DateTime <- rep(seq(s.date,e.date,by="hour"),each=2)
+# 
+#   in.hr.ls[[i]] <- data.table(input[[i]])[,list(CA=mean(CA, na.rm=TRUE),
+#                                                 PAR = 3600*mean(PAR, na.rm=TRUE)*10^-6/4.57,
+#                                                 RH = mean(RH, na.rm=TRUE),
+#                                                 TAIR = mean(TAIR, na.rm=TRUE)),
+#                                           by = c("DateTime")]
+# 
+# }
+# 
+# in.out.hrly.ls <- list()
+# 
+# for (i in 1:6){
+# 
+#   # input[[i]]$PAR <- input[[i]]$PAR*1800*10^-6/4.57
+#   hr.sum[[i]]$DateTime <- rep(seq(s.date,e.date,by="1 hour"),each=1)
+#   in.out.hrly.ls[[i]] <- merge(in.hr.ls[[i]],hr.sum[[i]],by="DateTime")
+#   in.out.hrly.ls[[i]]$Ring <- sprintf("R%s",i)
+# }
+# 
+# in.out.hrly.df <- do.call(rbind,in.out.hrly.ls)
+# 
+# sap.hr <- readRDS("sap_hrly.rds")
+# 
+# sap.hr <- subset(sap.hr,select = c("DateHour","Ring","volRing"))
+# names(sap.hr) <- c("DateTime","Ring","sap")
+# data.both.sap.hr <- merge(in.out.hrly.df,sap.hr,by = intersect(names(in.out.hrly.df), names(sap.hr)))
+# 
+# saveRDS(data.both.sap.hr,"mastra and sap hr.rds")
+# 
+# source("R/compare swc.R")
 
 # move file to output folders####
-fn.vec <- c("maespa trans vs hp hrly.pdf",
-            "mastra and sap hr.rds",
+fn.vec <- c(#"maespa trans vs hp hrly.pdf",
+            # "mastra and sap hr.rds",
+           # "all.hr.rds", 
             "mastra and sap.rds",
-            "maespa trans vs hp.pdf",
-            "all.hr.rds")
+            "maespa trans vs hp.pdf")
 
-if(gs.model.num == 4){
-  file.rename(from=fn.vec,
-              to=file.path("output","maestra",fn.vec))
-  
+if(identical(gs.model.num,4)){
+
+  if(identical(vc.vpd,TRUE)){
+    file.rename(from=fn.vec,
+                to=file.path("output","maestraVPD",fn.vec))
+  }else{
+    file.rename(from=fn.vec,
+                to=file.path("output","maestra",fn.vec))
+  }
 }
 
-if(gs.model.num == 6 ){
+if(identical(gs.model.num,6)){
   if(identical(vc.vpd,TRUE)){
     file.rename(from=fn.vec,
                 to=file.path("output","maespaVPD",fn.vec))

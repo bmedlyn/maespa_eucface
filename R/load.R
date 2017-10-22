@@ -22,6 +22,7 @@ if(!dir.exists("output"))dir.create("output")
 if(!dir.exists("output/maespa"))dir.create("output/maespa")
 if(!dir.exists("output/maespaVPD"))dir.create("output/maespaVPD")
 if(!dir.exists("output/maestra"))dir.create("output/maestra")
+if(!dir.exists("output/maestraVPD"))dir.create("output/maestraVPD")
 if(!dir.exists("cache"))dir.create("cache")
 if(!dir.exists("Rings"))dir.create("Rings")
 

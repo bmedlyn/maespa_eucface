@@ -1,5 +1,31 @@
-# functions from dushan with modification####
+# get theta and alpha from LRC######
+lrc.df <- read.csv("download/euc data/FACE_P0069_RA_GASEX-LRC_20141009-20170209_L1-V2.csv")
+arrhenius <- function(k25 = 100, Ea = 60, Rgas = 0.008314, TTK = 293.15) {
+  fn <- k25 * exp((Ea*(TTK - 298.15))/(298.15*Rgas*TTK)) 
+  return(fn)
+}
 
+lrc.df <-lrc.df[lrc.df$Datatype ==  "compLRC",]
+
+lrc.df$gammas <- arrhenius(42.75,37830.0/1000, TTK =c(lrc.df$Tleaf + 273.15))
+lrc.df$apar <- lrc.df$PARi * (1- 0.093 -0.082)
+lrc.df.low.par <- lrc.df[lrc.df$PARi < 100,]
+fit.a.lrc <- lm(Photo~apar,
+                data = lrc.df.low.par)
+alpha.a <- coef(summary(fit.a.lrc))[2]
+
+alpha.j <- mean(4*alpha.a*(lrc.df.low.par$Ci + 2*lrc.df.low.par$gammas)/
+  (lrc.df.low.par$Ci - lrc.df.low.par$gammas))
+  
+restult.lrc <- coef(nls(Photo~
+                          alpha.a * apar+ Pm - ((alpha.a * apar+ Pm)^2-4*alpha.a * apar*Pm*theta)^0.5/2/theta,
+                        data=lrc.df,start = list(Pm = 30, theta = 0.5)))
+
+restult.lrc$alpha.j <- alpha.j
+
+restult.lrc <- as.data.frame(restult.lrc)
+
+# functions from dushan with modification####
 #functions to fit ACi curves and return fitted parameters
 # function to get R2 from Photosyn object
 getr2 <- function(x){
@@ -147,8 +173,6 @@ update.phy.f <- function(lai.test,lai.base){
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
   # euc.acis.df$Curve_Number[euc.acis.df$Cond < 0]
 
- 
-
   library(plantecophys)
   euc.fit <- fitacis(euc.acis.df,group="Curve_Number",Tcorrect=TRUE,
                      EaV = t.response.df["Ea","Vcmax"]*1000, EdVC = 200000,
@@ -170,7 +194,8 @@ update.phy.f <- function(lai.test,lai.base){
   
   euc.all.df$Date <- as.Date(as.character(euc.all.df$Date_licor),"%b %d %Y")
   
-  euc.sub.df <- data.frame(Date = euc.all.df$Date,
+  euc.sub.df <- data.frame(Campaign = euc.all.df$Campaign,
+                           Date = euc.all.df$Date,
                            Ring = euc.all.df$Ring,
                            Vcmax = euc.all.df$Vcmax,
                            Jmax = euc.all.df$Jmax)
@@ -179,8 +204,9 @@ update.phy.f <- function(lai.test,lai.base){
   euc.sub.df$Vcmax <- round(euc.sub.df$Vcmax)
   euc.sub.df$Jmax <- round(euc.sub.df$Jmax)
   
-  euc.sum.df <- summaryBy(Vcmax + Jmax ~ Ring + Date,
+  euc.sum.df <- summaryBy(Vcmax + Jmax ~ Ring + Campaign,
                           data = euc.sub.df,
+                          id=~Date,
                           FUN=mean,na.rm = TRUE,
                           keep.names = TRUE)
   
@@ -231,9 +257,7 @@ update.phy.f <- function(lai.test,lai.base){
   }
   
   rd.t.df <- fit.rd.t.function("download/euc data/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
-  
 
-  
   # get g1######
   #g1 from Teresa's 2015 paper need to be on hiev
   g1 <- c(4.637, 3.564, 4.049, 4.084, 4.96, 3.413, 4.242)
@@ -253,7 +277,7 @@ update.phy.f <- function(lai.test,lai.base){
                               g1 = g1,
                               dates = test$Date,
                               nsides = 1,
-                              wleaf = 0.02, 
+                              wleaf = 0.01, 
                               VPDMIN = 0.05,
                               gamma = 0)
     )
@@ -317,9 +341,8 @@ update.phy.f <- function(lai.test,lai.base){
                               ))
     # THETA, EAVJ, EDVJ, DELSJ, AJQ, IECO 
     replaceNameList(namelist="JMAXPARS",datfile=fn,
-                    vals=list(
-                              # THETA =  ,
-                              # AJQ = ,
+                    vals=list(THETA =  restult.lrc$theta,
+                              AJQ = restult.lrc$alpha.j,
                               EAVJ = t.response.df["Ea","Jmax"]*1000,
                               EDVJ = 200000,
                               DELSJ = t.response.df["delS","Jmax"]*1000
