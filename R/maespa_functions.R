@@ -42,11 +42,11 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   # 
   # names(fcp2.sum) <- c("DateTime","WindSpeed", "air_pressure")
   
-  ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,15)),
+  ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,30)),
                                              PPFD=mean(PPFD_Avg, na.rm=TRUE),
                                              Tair=mean(AirTC_Avg, na.rm=TRUE),
                                              RH=mean(RH, na.rm=TRUE)))
-  ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,15)),
+  ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,30)),
                                              Rain=sum(Rain_mm_Tot, na.rm=TRUE)))
   
   ros.1 <- merge(ros15_30, ros05_30)
@@ -58,7 +58,7 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   ######################################################################################
   #get CO2
   # startDate = "2014-01-01"
-  # endDate = "2014-01-02"
+  # endDate = "2015-01-02"
   # Ring = 1
   fn <- sprintf("R%s_FCPLOGG_R",Ring)
   Rawdata <- downloadTOA5(fn, 
@@ -87,7 +87,8 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
                                       WindSpeed=mean(WindSpeed, na.rm=TRUE)
                                       ),
                                 by = DateTime]
-  # plot(PRESS~DateTime,data=sumCO2)
+  
+  # plot(PRESS~DateTime,data=sumCO2,ylim=c(950,1050),pch=15,cex=0.2)
   # Fill missing values
   library(zoo)
   sumCO2$CO2 <- na.locf(sumCO2$CO2)
@@ -119,7 +120,7 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   # RH is 0-1
   met$RH <- met$RH / 100
   
-  names(met) <- c("Date","CA","WIND","PRESS",
+  names(met) <- c("Date","CA","PRESS","WIND",
                   "PPT","PAR","TAIR","RH")
   met$Date <- as.Date(met$Date)
   
@@ -164,7 +165,8 @@ run_maespa_eucface <- function(ring,runfolder.path,
                           endDate = endDate)
   
   #get initial swc from hiev
-  swc.df <- downloadTOA5("FACE_R1_B1_SoilVars",
+  
+  swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",ring),
                          startDate = startDate,
                          endDate = endDate)
   
@@ -226,9 +228,9 @@ run_maespa_eucface <- function(ring,runfolder.path,
                                                       fracroot = f.vec
                                                       ))
   # plant hydro conductance
-  replaceNameList("plantpars","watpars.dat", vals=list(MINLEAFWP = -6,
-                                                       MINROOTWP = -5,
-                                                       PLANTK = 2.238867 #fit to Drake 2017; leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
+  replaceNameList("plantpars","watpars.dat", vals=list(MINLEAFWP = -3.2,#lowestvalue from WP Teresa
+                                                       MINROOTWP = -3,
+                                                       PLANTK = 2.68 #fit to spots; leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
   ))
   
 
@@ -297,10 +299,14 @@ run_maespa_eucface <- function(ring,runfolder.path,
 }
 #####
 eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:6,model.sel = 4,vc.vpd = FALSE,
+                   vj.ratio.test = FALSE,
+                   vj.ratio = 1.6,
                    ...){
   time.start <- Sys.time()
   # update.tree.f(...)
-  update.phy.f(...)
+  update.phy.f(vj.ratio.test = vj.ratio.test,
+                       vj.ratio = vj.ratio,
+               ...)
   for (ring in rings){
     
     run_maespa_eucface(ring = ring,

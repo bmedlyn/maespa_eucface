@@ -159,14 +159,17 @@ get.t.response.func <- function(data.path){
 }
 
 # function that update phy.dat#####
-update.phy.f <- function(lai.test,lai.base){
+update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   # data need to be on hiev
   # get vcmax jmax t response$####
-  t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
-  
+  if(!file.exists("cache/ecu_t_response.rds")){
+    t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
+    saveRDS(t.response.df,"cache/ecu_t_response.rds")
+  }
+  t.response.df <- readRDS("cache/ecu_t_response.rds")
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
-    euc.acis.df <- read.csv("data/P0020_EucFACE-Aci_MASTER.csv")
+  euc.acis.df <- read.csv("data/P0020_EucFACE-Aci_MASTER.csv")
   
   # data clean
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo < 50,]
@@ -199,7 +202,6 @@ update.phy.f <- function(lai.test,lai.base){
                            Ring = euc.all.df$Ring,
                            Vcmax = euc.all.df$Vcmax,
                            Jmax = euc.all.df$Jmax)
-  euc.sub.df <- euc.sub.df[order(euc.sub.df$Date),]
 
   euc.sub.df$Vcmax <- round(euc.sub.df$Vcmax)
   euc.sub.df$Jmax <- round(euc.sub.df$Jmax)
@@ -212,6 +214,7 @@ update.phy.f <- function(lai.test,lai.base){
   
   euc.sum.df$Vcmax <- round(euc.sum.df$Vcmax)
   euc.sum.df$Jmax <- round(euc.sum.df$Jmax)
+  euc.sum.df <- euc.sum.df[order(euc.sum.df$Date),]
   euc.sum.df$Date <- format(euc.sum.df$Date, format=c("%d/%m/%y")) 
   
   saveRDS(euc.sum.df,"cache/ecu_aci_sum.rds")
@@ -315,9 +318,14 @@ update.phy.f <- function(lai.test,lai.base){
     #Vcmax and Jmax
     options(scipen=999)
     
+    if(vj.ratio.test == FALSE){
+      jmax.use = euc.sum.df$Jmax[euc.sum.df$Ring == i]
+    }else{
+      jmax.use = vj.ratio * euc.sum.df$Vcmax[euc.sum.df$Ring == i]
+    }
 
     replaceNameList(namelist="jmax",datfile=fn,
-                    vals=list(values=euc.sum.df$Jmax[euc.sum.df$Ring == i],
+                    vals=list(values=jmax.use,
                               dates =euc.sum.df$Date[euc.sum.df$Ring == i]))
     replaceNameList(namelist="Vcmax",datfile=fn,
                     vals=list(values=euc.sum.df$Vcmax[euc.sum.df$Ring == i],

@@ -4,6 +4,8 @@
 # nls(VPD ~ a*TAIR^b,start= list(a=0.000605,b=2.39),data = data.all.war[complete.cases(data.all.war)])
 # summary(nls(VpdL ~ a*Tleaf^b,start= list(a=0.000605,b=2.39),data = spot.amb))
 
+data.all.war <- readRDS("output/maespa/all.hr.rds")
+
 data.all.war$RH_level <- cut(data.all.war$RH,
                          breaks = seq(0,100,20)/100,
                          labels = paste0("<",seq(20,100,20),"%"))

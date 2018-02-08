@@ -276,10 +276,12 @@ ReadInput <- function(ring){
  
  fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
  
- met <- read.table(fn,head=FALSE, skip=24)
+ # met <- read.table(fn,head=FALSE, skip=24)
 
- names(met)<-c("CA","PPT","PAR","TAIR","RH")
- 
+ # names(met)<-c("CA","PRESS","WIND",
+ #               "PPT","PAR","TAIR","RH")
+ met <- readmet(fn)
+
  met$Date <- rep(seq(s.date,e.date,by="1 day"),each=48)
  
 return(met)
@@ -287,20 +289,24 @@ return(met)
 
 ReadDayFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/Dayflx.dat",ring)
-  DayFlux <- read.table(fn,head=FALSE, skip=22)
-  # attach(DayFlux)
-  names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
-                    "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
+  # DayFlux <- read.table(fn,head=FALSE, skip=22)
+  # # attach(DayFlux)
+  # names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
+  #                   "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
+  
+  DayFlux <- readdayflux(fn)
+  
   return(DayFlux)
 }
 
 ReadHourFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/hrflux.dat",ring)
-  DayFlux <- read.table(fn,head=FALSE, skip=35)
-  # attach(DayFlux)
-  names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
-                    "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
-  return(DayFlux)
+  # DayFlux <- read.table(fn,head=FALSE, skip=35)
+  # # attach(DayFlux)
+  # names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
+  #                   "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
+  HourFlux <-readhrflux(filename = fn)
+  return(HourFlux)
 }
 
 GetAverage <- function (x) {
@@ -310,7 +316,7 @@ GetAverage <- function (x) {
                            PAR = 1800*sum(PAR, na.rm=TRUE)*10^-6/4.57,
                            RH = mean(RH, na.rm=TRUE),
                            TAIR = mean(TAIR, na.rm=TRUE),
-                           Rain = 0.5*sum(PPT, na.rm=TRUE)),
+                           Rain = sum(PPT, na.rm=TRUE)),
                      by = Date]
   return(y) 
 }

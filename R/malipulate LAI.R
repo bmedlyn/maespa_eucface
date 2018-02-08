@@ -1,20 +1,45 @@
 rm(list=ls())
 cat("\014")
 # the trunck hieght problems still there is ring 6
+
 source("R/load.R")
 source("R/warpar.R")
+
+co2.increase <- 0
+temp.increase <- 0
+
+for ( i in 1:6){
+  fn <- sprintf("Rings/Ring%s/runfolder/confile.dat",i)
+  replaceNameList(namelist="CCSCEN",datfile=fn,
+                  vals=list(CO2INC = co2.increase,
+                            TINC = temp.increase))
+}
+
+
+                
 #test - lai sensitivity test
 test <- 1
 # lai in the model = measured - base 
-base <- 0
+base <- 0.8
 
 # make sure you want to do this first
 time.used <- eucGPP(startDate = as.Date("2013-01-01"),
-                    endDate = as.Date("2013-02-01"),
+                    endDate = as.Date("2013-12-31"),
                     lai.test = test,
                     lai.base = base,
                     rings = 4,
                     hourly.data = TRUE)
+
+
+# co2.vec <- c("&CCSCEN","CO2INC = 0","/")
+# 
+# for (i in 1:6){
+#   
+#   tf <- sprintf("Rings/Ring%s/runfolder/confile.dat",i)
+#   
+#   write(co2.vec,tf,append = TRUE, sep = "\t")
+#   
+# }
 
 #analysis###################
 # read inputs and outputs
@@ -30,6 +55,10 @@ for (i in 1:6){
   hr.flux[[i]] <- ReadHourFlux(i)
   
 }
+
+
+# mean(Data$CA[Data$Ring == "1"],na.rm = 1)
+
 
 # make a df of all in and out puts togethter
 # AllRing <- getAllRings(DayFlux = flux,InputValue = input)
@@ -140,3 +169,101 @@ names(sap.hr) <- c("DateTime","Ring","sap")
 data.both.sap.hr <- merge(in.out.hrly.df,sap.hr,by = intersect(names(in.out.hrly.df), names(sap.hr)))
 
 saveRDS(data.both.sap.hr,paste0("mastra and sap hr","_",test,"_",base,".rds"))
+
+
+# read data
+df.ctrl.day <- readRDS("mastra and sap_1_0.8.rds")
+df.ctrl.hr <- readRDS("mastra and sap hr_1_0.8.rds")
+
+df.1.0.day <- readRDS("mastra and sap_1_0.rds")
+df.1.0.hr <- readRDS("mastra and sap hr_1_0.rds")
+
+df.0.8.0.8.day <- readRDS("mastra and sap_0.8_0.8.rds")
+df.0.8.0.8.hr <- readRDS("mastra and sap hr_0.8_0.8.rds")
+
+df.1.2.0.8.day <- readRDS("mastra and sap_1.2_0.8.rds")
+df.1.2.0.8.hr <- readRDS("mastra and sap hr_1.2_0.8.rds")
+
+df.1.0.8.150.day <- readRDS("mastra and sap_1_0.8_150_0.rds")
+df.1.0.8.150.hr <- readRDS("mastra and sap hr_1_0.8_150_0.rds")
+
+# sum(df.ctrl.day$GPP[df.ctrl.day$Ring == "R4"])
+# sum(df.0.8.0.8.day$GPP[df.0.8.0.8.day$Ring == "R4"])
+# sum(df.1.2.0.8.day$GPP[df.1.2.0.8.day$Ring == "R4"])
+# sum(df.1.0.day$GPP[df.1.0.day$Ring == "R4"])
+# 
+# 
+# sum(df.ctrl.day$Trans[df.ctrl.day$Ring == "R4"])
+# sum(df.0.8.0.8.day$Trans[df.0.8.0.8.day$Ring == "R4"])
+# sum(df.1.2.0.8.day$Trans[df.1.2.0.8.day$Ring == "R4"])
+# sum(df.1.0.day$Trans[df.1.0.day$Ring == "R4"])
+
+#
+pdf("change of lai.pdf",width = 10,height = 8)
+par(mar=c(4,5,1,1),mfrow=c(3,1))
+gpp.vec <- data.frame(control = sum(df.ctrl.day$GPP[df.ctrl.day$Ring == "R4"]),
+                      lai.de.20 = sum(df.0.8.0.8.day$GPP[df.0.8.0.8.day$Ring == "R4"]),
+                      lai.in.20 = sum(df.1.2.0.8.day$GPP[df.1.2.0.8.day$Ring == "R4"]),
+                      lai.plus.0.8 = sum(df.1.0.day$GPP[df.1.0.day$Ring == "R4"]))
+barplot(as.matrix(gpp.vec),
+        ylab=expression(GPP~(g~C~m^-2~mon^-1)),
+        beside=TRUE,
+        names.arg = c("Control","LAI -20%","LAI+20%","LAI +0.8"),
+        col=c("navy","lightskyblue","coral","brown"),
+        border = NA,
+        space = c(1,0.1,0,0),
+        main = "2013-01-01 to 2013-02-01",
+        cex.axis = 1)
+
+# transpiration
+trans.vec <- data.frame(hp = sum(df.ctrl.day$volRing[df.ctrl.day$Ring == "R4"]),
+                        control = sum(df.ctrl.day$Trans[df.ctrl.day$Ring == "R4"]),
+                        trans.de.20 = sum(df.0.8.0.8.day$Trans[df.0.8.0.8.day$Ring == "R4"]),
+                        trans.in.20 = sum(df.1.2.0.8.day$Trans[df.1.2.0.8.day$Ring == "R4"]),
+                        trans.plus.0.8 = sum(df.1.0.day$Trans[df.1.0.day$Ring == "R4"]))
+
+barplot(as.matrix(trans.vec),
+        ylab=expression(Transpiration~(mm~mon^-1)),
+        beside=TRUE,
+        names.arg = c("Measured","Control","LAI -20%","LAI+20%","LAI +0.8"),
+        col=c("darkseagreen","navy","lightskyblue","coral","brown"),
+        border = NA,
+        space = c(0.1,0.1,0.1,0,0),
+        # main = "2013-01-01 to 2013-02-01",
+        cex.axis = 1)
+# ring 4 with +150 Ca
+# sum(df.ctrl.day$GPP[df.ctrl.day$Ring == "R4"],na.rm=TRUE)
+# 
+# sum(df.ctrl.day$Trans[df.ctrl.day$Ring == "R4"],na.rm=TRUE)
+
+df.ctrl.day$lue <- df.ctrl.day$GPP / df.ctrl.day$APAR
+
+# sum(df.1.0.8.150.day$GPP[df.1.0.8.150.day$Ring == "R4"],na.rm=TRUE)
+# 
+# sum(df.1.0.8.150.day$Trans[df.1.0.8.150.day$Ring == "R4"],na.rm=TRUE)
+
+df.1.0.8.150.day$lue <- df.1.0.8.150.day$GPP/df.1.0.8.150.day$APAR
+
+# mean(df.1.0.8.150.day$lue ,na.rm = TRUE)
+# mean(df.ctrl.day$lue ,na.rm = TRUE)
+
+
+
+# resp
+resp.vec <- data.frame(control = sum(df.ctrl.day$Ra[df.ctrl.day$Ring == "R4"]),
+                        trans.de.20 = sum(df.0.8.0.8.day$Ra[df.0.8.0.8.day$Ring == "R4"]),
+                        trans.in.20 = sum(df.1.2.0.8.day$Ra[df.1.2.0.8.day$Ring == "R4"]),
+                        trans.plus.0.8 = sum(df.1.0.day$Ra[df.1.0.day$Ring == "R4"]))
+
+nce.vec <- gpp.vec - resp.vec
+barplot(as.matrix(resp.vec),
+        ylab=expression(Foliage~respiration~(g~C~yr^-1)),
+        beside=TRUE,
+        names.arg = c("Control","LAI -20%","LAI+20%","LAI +0.8"),
+        col=c("navy","lightskyblue","coral","brown"),
+        border = NA,
+        space = c(0.1,0.1,0,0),
+        # main = "2013-01-01 to 2013-02-01",
+        cex.axis = 1)
+
+dev.off()

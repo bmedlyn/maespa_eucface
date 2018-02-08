@@ -1,7 +1,7 @@
 # a <- 1
 # write(a)
 # write.table(a,file="see.dat")
-root.depth <- 500 #cm
+root.depth <- 75 #cm
 # value of 0.99 is used by remko;
 # 0.96 is from Jakson 1996
 beta <- 0.96
@@ -15,7 +15,7 @@ root.sum <- summaryBy(Fine.Root.Biomass...g.m2..0.30.cm ~ Ring.ID,
                      data=root.euc,FUN=mean,na.rm=TRUE)
 
 # here juan suggest half the roots are from eucs. No idea what the actual proportion is. 
-d.v <- c(0,10,30,seq(100,root.depth,100))
+d.v <- c(0,10,30,root.depth)
 
 f.v <- c()
 
@@ -29,7 +29,6 @@ f.d.vec <- diff(f.v)
 top.30.accum <- root.sum$Fine.Root.Biomass...g.m2..0.30.cm.mean
 # that's the default value from Jackson 1996 the model is very sensitive to this number
 
-
 f.r.30 <- (1-beta^30)/(1-beta^root.depth)
 
 root.total <- top.30.accum/f.r.30
@@ -38,8 +37,8 @@ root.total <- top.30.accum/f.r.30
 # the fraction of root in each layer
 # root depth in cm
 
-depth.v <- c(0,50,seq(100,root.depth,100))
-
+# depth.v <- c(0,50,seq(100,root.depth,100))
+depth.v <- c(0,50,root.depth)
 f.accu.v <- c()
 
 for(i in 1:length(depth.v)){
