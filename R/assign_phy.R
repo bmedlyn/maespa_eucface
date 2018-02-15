@@ -262,13 +262,24 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   rd.t.df <- fit.rd.t.function("download/euc data/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
 
   # get g1######
-  #g1 from Teresa's 2015 paper need to be on hiev
-  g1 <- c(4.637, 3.564, 4.049, 4.084, 4.96, 3.413, 4.242)
-  g1Date <- c('12/04/01','12/05/01','12/10/01','13/02/01','13/05/01','13/09/01','13/11/01') 
-  g1Date <- as.Date(g1Date,format="%y/%m/%d")
-  g1Date <- as.Date(g1Date,format="%d/%m/%y")
-  test <- data.frame(g1,g1Date)
-  test$Date <- format(test$g1Date,format="%d/%m/%y")
+  #g1 from Teresa's 2015 paper 
+ 
+  # g1 <- c(4.637, 3.564, 4.049, 4.084, 4.96, 3.413, 4.242)
+  # g1Date <- c('12/04/01','12/05/01','12/10/01','13/02/01','13/05/01','13/09/01','13/11/01') 
+  # g1Date <- as.Date(g1Date,format="%y/%m/%d")
+  # g1Date <- as.Date(g1Date,format="%d/%m/%y")
+  # test <- data.frame(g1,g1Date)
+  # test$Date <- format(test$g1Date,format="%d/%m/%y")
+  spots <- read.csv("data/Gimeno_spot_Eter_gasExchange6400.csv")
+  spots <- spots[is.na(spots$Tree) != TRUE,]
+  spots$Campaign <- droplevels(spots$Campaign)
+  
+  fit.spot <- fitBBs(spots,"Campaign",gsmodel = c("BBOpti"))
+  spots.g1 <- merge(coef(fit.spot),unique(spots[,c("Campaign","Date")]),by.x="group",by.y="Campaign")
+  spots.g1$Date <- as.Date(as.character(spots.g1$Date),"%d/%m/%Y")
+  spots.g1 <- spots.g1[complete.cases(spots.g1),]
+  spots.g1 <- spots.g1[order(spots.g1$Date),]
+  spots.g1$Date <- format(spots.g1$Date,format="%d/%m/%y")
   
   #update eachRing####
   for (i in 1:6){
@@ -276,9 +287,9 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
 
     fn <- sprintf("Rings/Ring%s/runfolder/phy.dat",i)
     replaceNameList(namelist="bbmgs",datfile=fn,
-                    vals=list(g0 = numeric(length(test$g1)),
-                              g1 = g1,
-                              dates = test$Date,
+                    vals=list(g0 = 0,
+                              g1 = spots.g1$g1,
+                              dates = spots.g1$Date,
                               nsides = 1,
                               wleaf = 0.01, 
                               VPDMIN = 0.05,
@@ -286,8 +297,8 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
     )
     
     replaceNameList(namelist="bbgscon",datfile=fn,
-                    vals=list(nodates = length(test$Date),
-                              condunits = 'h2o'
+                    vals=list(nodates = length(spots.g1$Date),
+                              condunits = 'CO2'
                     ))
     # tuzet pars
     #gs paramteres for tuzet
@@ -311,7 +322,7 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                                             nsides=1,
                                             wleaf=0.02,
                                             gamma=0,
-                                            VPDMIN=0.05
+                                            VPDMIN=0.05 
     ))
     
 
