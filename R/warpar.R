@@ -6,7 +6,8 @@ root.depth <- 75 #cm
 # 0.96 is from Jakson 1996
 beta <- 0.96
 
-root.euc <- read.csv("EucFACE Fine root HIEv.csv",header = 1)
+wb = loadWorkbook("download/euc data/EucFACE Fine root HIEv.xlsx")
+root.euc = readWorksheet(wb, sheet = "Fine root biomass", header = TRUE)
 # na.omit(root.euc)
 root.euc <- root.euc[colSums(!is.na(root.euc)) > 0]
 

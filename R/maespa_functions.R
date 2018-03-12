@@ -1,7 +1,7 @@
-make_met <- function(Ring,startDate= NULL,endDate = NULL){
+make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
   
-  ######################################################################################
-  # # choose only the days with lai
+  
+  # # choose only the days with lai######################################################################################
   DATES <- sm[[Ring]]$Date
 
   if(is.null(startDate)){
@@ -55,8 +55,8 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   #replace below zero PAR with zero 
   ros$PPFD[ros$PPFD<0] <- 0
 
-  ######################################################################################
-  #get CO2
+ 
+  #get CO2 ######################################################################################
   # startDate = "2014-01-01"
   # endDate = "2015-01-02"
   # Ring = 1
@@ -79,7 +79,6 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   CO2Data$Concentration.1Min[CO2Data$Concentration.1Min > 1000] <- 1000
   CO2Data$Concentration.1Min[CO2Data$Concentration.1Min < 350] <- 350
 
-  ################################################################################################################
   CO2Data$DateTime <- nearestTimeStep(CO2Data$DateTime, 30, "ceiling")
 
   sumCO2 <- data.table(CO2Data)[,list(CO2=mean(Concentration.1Min, na.rm=TRUE),
@@ -101,16 +100,16 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
   sumCO2$PRESS <- na.locf(sumCO2$PRESS)
   sumCO2$PRESS <- sumCO2$PRESS * 100 #times 100 to convert unit from hPa to Pa
   #write the CO2 into a RDS file
-  saveRDS(sumCO2,sprintf("R%sCO230Min.rds",Ring))
+  # saveRDS(sumCO2,sprintf("R%sCO230Min.rds",Ring))
   
   CaData <- sumCO2
-  ######################################################################################
-  #merge all the data 
+  
+  #merge all the data ######################################################################################
   
   AllData <- merge(CaData,ros,by="DateTime")
   
-  ######################################################################################  
-  # Make sure there are no gaps!
+  
+  # Make sure there are no gaps!######################################################################################  
   # Merge with full timeseries...
   met <- data.frame(DateTime=seq.POSIXt(min(ros$DateTime), max(ros$DateTime), by="30 min"))
   met <- merge(met, AllData, all=TRUE)
@@ -124,17 +123,20 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL){
                   "PPT","PAR","TAIR","RH")
   met$Date <- as.Date(met$Date)
   
+  if(fix.ca==TRUE){met$CA = CA.in}
+  
   return(met)
   }
 
-#########################################################################################
-# ring is 1,2,...,6
+#run_maespa_eucface########################################################################################
 run_maespa_eucface <- function(ring,runfolder.path,
                                startDate= NULL,
                                endDate=NULL,
                                hourly.data=FALSE,
                                model.num,
-                               vc.vpd){
+                               vc.vpd,
+                               fix.ca,
+                               CA.in){
 
   o <- getwd()
   setwd(runfolder.path)
@@ -162,7 +164,9 @@ run_maespa_eucface <- function(ring,runfolder.path,
   met <- list()
   met[[ring]] <- make_met(ring,
                           startDate = startDate,
-                          endDate = endDate)
+                          endDate = endDate,
+                          fix.ca=fix.ca,
+                          CA.in=CA.in)
   
   #get initial swc from hiev
   
@@ -297,10 +301,11 @@ run_maespa_eucface <- function(ring,runfolder.path,
 #   output[[ring]] <- readdayflux()
 #   return(output)
 }
-#####
+#eucGPP####
 eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:6,model.sel = 4,vc.vpd = FALSE,
                    vj.ratio.test = FALSE,
                    vj.ratio = 1.6,
+                   fix.ca=FALSE,CA.in=400,
                    ...){
   time.start <- Sys.time()
   # update.tree.f(...)
@@ -315,7 +320,10 @@ eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:
                        startDate= startDate,
                        endDate = endDate,
                        model.num = model.sel,
-                       vc.vpd = vc.vpd)
+                       vc.vpd = vc.vpd,
+                       fix.ca=fix.ca,
+                       CA.in=CA.in
+                       )
 
   }
   time.used <- Sys.time() - time.start

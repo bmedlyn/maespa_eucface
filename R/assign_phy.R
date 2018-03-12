@@ -1,12 +1,12 @@
 # get theta and alpha from LRC######
 lrc.df <- read.csv("download/euc data/FACE_P0069_RA_GASEX-LRC_20141009-20170209_L1-V2.csv")
+# the arrhenius function
 arrhenius <- function(k25 = 100, Ea = 60, Rgas = 0.008314, TTK = 293.15) {
   fn <- k25 * exp((Ea*(TTK - 298.15))/(298.15*Rgas*TTK)) 
   return(fn)
 }
 
 lrc.df <-lrc.df[lrc.df$Datatype ==  "compLRC",]
-
 lrc.df$gammas <- arrhenius(42.75,37830.0/1000, TTK =c(lrc.df$Tleaf + 273.15))
 lrc.df$apar <- lrc.df$PARi * (1- 0.093 -0.082)
 lrc.df.low.par <- lrc.df[lrc.df$PARi < 100,]
@@ -25,7 +25,7 @@ restult.lrc$alpha.j <- alpha.j
 
 restult.lrc <- as.data.frame(restult.lrc)
 
-# functions from dushan with modification####
+# functions for T response from dushan with modification####
 #functions to fit ACi curves and return fitted parameters
 # function to get R2 from Photosyn object
 getr2 <- function(x){
@@ -135,7 +135,7 @@ fitpeakedJ<-function(dat){
   return(param)
 }
 
-#fit ACi curves
+#t.response func
 get.t.response.func <- function(data.path){
   
   fef <- makecurves(data.path)
@@ -161,7 +161,7 @@ get.t.response.func <- function(data.path){
 # function that update phy.dat#####
 update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   # data need to be on hiev
-  # get vcmax jmax t response$####
+  # get vcmax jmax t response####
   if(!file.exists("cache/ecu_t_response.rds")){
     t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
     saveRDS(t.response.df,"cache/ecu_t_response.rds")
@@ -169,42 +169,51 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   t.response.df <- readRDS("cache/ecu_t_response.rds")
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
-  euc.acis.df <- read.csv("data/P0020_EucFACE-Aci_MASTER.csv")
-  
+  euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
+ # see <-  read.csv("data/E_teret_A-Ci_temperature_curves.csv")
   # data clean
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo < 50,]
+  euc.acis.df <- euc.acis.df[euc.acis.df$Photo > -2,]
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
-  # euc.acis.df$Curve_Number[euc.acis.df$Cond < 0]
-
+  euc.acis.df <- euc.acis.df[complete.cases(euc.acis.df$Number),]
+  # # plot to check data
+  # plot(Photo~Ci,data = euc.acis.df[euc.acis.df$Number == 478,])
   library(plantecophys)
-  euc.fit <- fitacis(euc.acis.df,group="Curve_Number",Tcorrect=TRUE,
-                     EaV = t.response.df["Ea","Vcmax"]*1000, EdVC = 200000,
+  euc.fit <- fitacis(euc.acis.df,group="Number",Tcorrect=TRUE,fitmethod = c("default"),
+                     varnames = list(ALEAF = "Photo",Tleaf = "Tleaf", 
+                                     Ci = "Ci", PPFD = "PARi"),
+                     EaV = t.response.df["Ea","Vcmax"]*1000, 
+                     EdVC = 2e+05,
                      delsC = t.response.df["delS","Vcmax"]*1000, 
                      EaJ = t.response.df["Ea","Jmax"]*1000, 
                      EdVJ = 2e+05, delsJ = t.response.df["delS","Jmax"]*1000)
-  euc.coef <- coef(euc.fit)
-  euc.coef$Tleaf <- sapply(euc.fit, function(x)mean(x$df$Tleaf))
+   
+  see <- Filter(function(x) length(x)>1, euc.fit)
+  euc.coef <- as.data.frame(do.call(rbind,sapply(see,function(x) out.df <- data.frame(coef(x)))))
+  names(euc.coef) <- c("Vcmax","Jmax","Rd")
+  euc.coef$Number <- as.numeric(names(see))
   
   # put fits and measurements together
-  euc.all.df <- merge(euc.coef,euc.acis.df,by = "Curve_Number")
-  
+  euc.all.df <- merge(euc.coef,euc.acis.df,by = "Number")
+  # date format clean and change
   euc.all.df$Tree <- as.factor(euc.all.df$Tree)
   euc.all.df$C.treat <- as.factor(euc.all.df$C.treat)
-  euc.all.df$Date_licor <-  as.character(euc.all.df$Date_licor)
-  # get rid of white space in the front of some date
-  trim.leading <- function (x)  sub("^\\s+", "", x)
-  euc.all.df$Date_licor <- trim.leading(euc.all.df$Date_licor)
+  euc.all.df$Date <- as.character(euc.all.df$Date)
+  euc.all.df$Ring[is.na(euc.all.df$Ring)] <- 3
+  euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) < 13] <- 
+    substr(euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) <13],2,12)
+
+  euc.all.df$Date[nchar(euc.all.df$Date) > 13] <- 
+    substr(euc.all.df$Date[nchar(euc.all.df$Date) > 13 ],5,15)
+  euc.all.df$Date[euc.all.df$Date == "10-Oct-16"] <- "Oct 10 2016"
+  euc.all.df$Date <-  as.Date(euc.all.df$Date,"%b %d %Y")
   
-  euc.all.df$Date <- as.Date(as.character(euc.all.df$Date_licor),"%b %d %Y")
-  
+  # get ring average
   euc.sub.df <- data.frame(Campaign = euc.all.df$Campaign,
                            Date = euc.all.df$Date,
                            Ring = euc.all.df$Ring,
                            Vcmax = euc.all.df$Vcmax,
                            Jmax = euc.all.df$Jmax)
-
-  euc.sub.df$Vcmax <- round(euc.sub.df$Vcmax)
-  euc.sub.df$Jmax <- round(euc.sub.df$Jmax)
   
   euc.sum.df <- summaryBy(Vcmax + Jmax ~ Ring + Campaign,
                           data = euc.sub.df,
@@ -215,12 +224,12 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   euc.sum.df$Vcmax <- round(euc.sum.df$Vcmax)
   euc.sum.df$Jmax <- round(euc.sum.df$Jmax)
   euc.sum.df <- euc.sum.df[order(euc.sum.df$Date),]
-  euc.sum.df$Date <- format(euc.sum.df$Date, format=c("%d/%m/%y")) 
+  euc.sum.df$Date <- format(as.Date(euc.sum.df$Date), format=c("%d/%m/%y")) 
   
   saveRDS(euc.sum.df,"cache/ecu_aci_sum.rds")
   }
   euc.sum.df <- readRDS("cache/ecu_aci_sum.rds")
-  
+  euc.sum.df <- euc.sum.df[complete.cases(euc.sum.df),]
   # functions for Rd T response####
   fit.rd.t.function <- function(fn){
     rdark.csv <- read.csv(fn)
@@ -262,18 +271,12 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   rd.t.df <- fit.rd.t.function("download/euc data/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
 
   # get g1######
-  #g1 from Teresa's 2015 paper 
- 
-  # g1 <- c(4.637, 3.564, 4.049, 4.084, 4.96, 3.413, 4.242)
-  # g1Date <- c('12/04/01','12/05/01','12/10/01','13/02/01','13/05/01','13/09/01','13/11/01') 
-  # g1Date <- as.Date(g1Date,format="%y/%m/%d")
-  # g1Date <- as.Date(g1Date,format="%d/%m/%y")
-  # test <- data.frame(g1,g1Date)
-  # test$Date <- format(test$g1Date,format="%d/%m/%y")
-  spots <- read.csv("data/Gimeno_spot_Eter_gasExchange6400.csv")
+  #g1 from Teresa's 2015 paper
+  spots <-read.csv(unz("download/euc data/Gimeno_spot.zip", "data/Gimeno_spot_Eter_gasExchange6400.csv"))
+  
+  # spots <- read.csv("data/Gimeno_spot_Eter_gasExchange6400.csv")
   spots <- spots[is.na(spots$Tree) != TRUE,]
   spots$Campaign <- droplevels(spots$Campaign)
-  
   fit.spot <- fitBBs(spots,"Campaign",gsmodel = c("BBOpti"))
   spots.g1 <- merge(coef(fit.spot),unique(spots[,c("Campaign","Date")]),by.x="group",by.y="Campaign")
   spots.g1$Date <- as.Date(as.character(spots.g1$Date),"%d/%m/%Y")
@@ -300,6 +303,18 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                     vals=list(nodates = length(spots.g1$Date),
                               condunits = 'CO2'
                     ))
+    
+    replaceNameList(namelist="bblgs",datfile=fn,
+                    vals=list(g0 = 0,
+                              g1 = rep(9,length(spots.g1$Date)),
+                              D0L = rep(1500,length(spots.g1$Date)),
+                              dates = spots.g1$Date,
+                              nsides = 1,
+                              wleaf = 0.01, 
+                              VPDMIN = 0.05,
+                              gamma = 0)
+    )
+  
     # tuzet pars
     #gs paramteres for tuzet
     replaceNameList(namelist="bbtuz",datfile=fn, vals=list(g0 =0,
@@ -324,7 +339,6 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                                             gamma=0,
                                             VPDMIN=0.05 
     ))
-    
 
     #Vcmax and Jmax
     options(scipen=999)
@@ -381,7 +395,8 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                     ))
     
     
-    # make plot
+    # make plot of used value #####################################################################
+    # can be handy but not used for now############################################################
     ######
     # pdf("g1 vcmax jmax.pdf",width=12,height=9)
     # #plot g1 vcmax gmax for each ring####

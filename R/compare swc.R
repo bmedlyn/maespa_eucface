@@ -86,7 +86,7 @@ spots.df <- read.csv("Gimeno_spot_Eter_gasExchange6400.csv")
 spots.r1.df <- spots.df
 
 # read daily fluxes############
-data.both.sap<- readRDS("mastra and sap.rds")
+data.both.sap<- readRDS("output/maespaVPD/mastra and sap.rds")
 # get start and end day
 con.ls <- readLines("Rings/Ring4/runfolder/confile.dat")
 
@@ -107,7 +107,7 @@ e.date <- as.Date(ed,"%d/%m/%y")
 
 # 
 # get swc from hiev
-swc.df <- downloadTOA5("FACE_R1_B1_SoilVars",
+swc.df <- downloadTOA5("FACE_R4_B1_SoilVars",
                        startDate = s.date,
                        endDate = e.date)
 
@@ -128,9 +128,17 @@ swc.day.df <- data.table(swc.df)[,list(swc.5 = mean(swc.0.5, na.rm=TRUE),
                                        swc.75 = mean(swc.30.75, na.rm=TRUE)),
                                  by = Date]
 
-swc.day.df$swc.5 <- swc.day.df$swc.30/100
+swc.day.df$swc.5 <- swc.day.df$swc.5/100
 swc.day.df$swc.30 <- swc.day.df$swc.30/100
 swc.day.df$swc.75 <- swc.day.df$swc.75/100
+swc.day.df <- swc.day.df[order(swc.day.df$Date),]
+plot(swc.5~Date,data = swc.day.df,ylim=c(0,0.4),type="s",col="red",
+     ylab=expression(SWC~("%")))
+points(swc.30~Date,data = swc.day.df,type="s",col="navy")
+
+# 
+
+# plot(swc.30~Date,data = swc.day.df,type="s",col="coral")
 # vwc.df <- read.csv("FACE_RA_P0037_DAILYMET_20110619-20151026_L2.csv")
 # vwc.df <- na.omit(vwc.df)
 # vwc.df$Date <- as.Date(vwc.df$Date)
@@ -238,7 +246,7 @@ total.drain + total.se
 
 #####
 # get hrly data##############
-data.both.sap.hr <- readRDS("mastra and sap hr.rds")
+data.both.sap.hr <- readRDS("output/maespaVPD/mastra and sap hr.rds")
 
 watbal$HOUR <- ceiling(watbal$hour/2)
 
@@ -298,7 +306,7 @@ data.all.war <- merge(data.all.war,lai.r1.df,by="Date")
 data.all.war$a.leaf.m <- data.all.war$Photo /12*10^6 /3600 * (data.all.war$LAI - 0.8) 
 range(data.all.war$GPP,na.rm=T)
 saveRDS(data.all.war,"all.hr.rds")
-
+data.all.war <- readRDS("output/maestraVPD/all.hr.rds")
 # df = data.all.war
 #####
 # plot hourly##########

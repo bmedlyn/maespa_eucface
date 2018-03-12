@@ -109,16 +109,16 @@ for (co2.increase in c(-150,150)){
   saveRDS(data.both.sap,file.nm)
   # data.both.sap<- readRDS(paste0("mastra and sap","_",test,"_",base,"_",co2.increase,"_",temp.increase,".rds"))
   
-#   # move file to output folders####
-#   
-#   if(identical(vj.ratio.test,FALSE)){
-#     file.rename(from=file.nm,
-#                 to=file.path("vj16",file.nm))
-#   }else{
-#     file.rename(from=file.nm,
-#                 to=file.path("vj2","maestra",file.nm))
-#     
-#   }
-#   
+  #   # move file to output folders####
+  #   
+  #   if(identical(vj.ratio.test,FALSE)){
+  #     file.rename(from=file.nm,
+  #                 to=file.path("vj16",file.nm))
+  #   }else{
+  #     file.rename(from=file.nm,
+  #                 to=file.path("vj2","maestra",file.nm))
+  #     
+  #   }
+  #   
 }
 

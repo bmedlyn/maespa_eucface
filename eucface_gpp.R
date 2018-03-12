@@ -4,23 +4,23 @@ cat("\014")
 source("R/load.R")
 source("R/warpar.R")
 for (i in 1:6){
-  #assign g1
+  #assign extwind: effciency of wind exponential decline with canopy depth 
   fn <- sprintf("Rings/Ring%s/runfolder/str.dat",i)
   replaceNameList(namelist="aero",datfile=fn,
                   vals=list(extwind = 0.0)
   )
 }
-#test - lai sensitivity test
+#test - lai sensitivity test####
 test <- 1.0
 # lai in the model = measured - base 
 # specify test parameters 
 base <- 0.8 # brach and stem area to be substracted from LAI
 
-# vj.ratio
+# vj.ratio###
 vj.ratio.test = FALSE
 vj.ratio = 1.6
-# change co2 and t test 
-co2.increase <- 0 #elevated co2 test; ppm
+# change co2 and t test ####
+co2.increase <-0 #elevated co2 test; ppm
 temp.increase <- 0 # temperature increase test; celsius
 
 for ( i in 1:6){
@@ -30,16 +30,20 @@ for ( i in 1:6){
                             TINC = temp.increase))
 }
 
-# chose gs model: 4 is optbb; 6 is tuzet
+# chose gs model: 3: Leuning; 4 is optbb; 6 is tuzet####
 gs.model.num <- 4
+# vcmax-D function####
 vc.vpd <- TRUE
 # fire up the model####
+########################################################TRUE
+# check all the option above before launch the model####
+########################################################
 # make sure you want to do this first
-time.used <- eucGPP(startDate = as.Date("2013-01-01"),
-                    endDate = as.Date("2017-01-01"),
+time.used <- eucGPP(startDate = as.Date("2013-06-01"),
+                    endDate = as.Date("2013-12-31"),
                     lai.test = test,
                     lai.base = base,
-                    rings = 1:6,
+                    rings = 1:2,
                     model.sel = gs.model.num,
                     hourly.data = TRUE,
                     vc.vpd = vc.vpd,
@@ -250,3 +254,8 @@ if(identical(gs.model.num,6)){
     }
 }
 
+
+if(identical(gs.model.num,4)){
+    file.rename(from=fn.vec,
+                to=file.path("output","leuning",fn.vec))
+}
