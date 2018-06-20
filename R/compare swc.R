@@ -86,7 +86,7 @@ spots.df <- read.csv("Gimeno_spot_Eter_gasExchange6400.csv")
 spots.r1.df <- spots.df
 
 # read daily fluxes############
-data.both.sap<- readRDS("output/maespaVPD/mastra and sap.rds")
+data.both.sap<- readRDS("mastra and sap.rds")
 # get start and end day
 con.ls <- readLines("Rings/Ring4/runfolder/confile.dat")
 
@@ -132,9 +132,9 @@ swc.day.df$swc.5 <- swc.day.df$swc.5/100
 swc.day.df$swc.30 <- swc.day.df$swc.30/100
 swc.day.df$swc.75 <- swc.day.df$swc.75/100
 swc.day.df <- swc.day.df[order(swc.day.df$Date),]
-plot(swc.5~Date,data = swc.day.df,ylim=c(0,0.4),type="s",col="red",
-     ylab=expression(SWC~("%")))
-points(swc.30~Date,data = swc.day.df,type="s",col="navy")
+# plot(swc.5~Date,data = swc.day.df,ylim=c(0,0.4),type="s",col="red",
+#      ylab=expression(SWC~("%")))
+# points(swc.30~Date,data = swc.day.df,type="s",col="navy")
 
 # 
 
@@ -246,7 +246,7 @@ total.drain + total.se
 
 #####
 # get hrly data##############
-data.both.sap.hr <- readRDS("output/maespaVPD/mastra and sap hr.rds")
+data.both.sap.hr <- readRDS("mastra and sap hr.rds")
 
 watbal$HOUR <- ceiling(watbal$hour/2)
 
@@ -304,12 +304,14 @@ names(lai.r1.df) <- c("Date","LAI")
 data.all.war <- merge(data.all.war,lai.r1.df,by="Date")
 
 data.all.war$a.leaf.m <- data.all.war$Photo /12*10^6 /3600 * (data.all.war$LAI - 0.8) 
-range(data.all.war$GPP,na.rm=T)
+
 saveRDS(data.all.war,"all.hr.rds")
-data.all.war <- readRDS("output/maestraVPD/all.hr.rds")
+# data.all.war <- readRDS("output/maestraVPD/all.hr.rds")
+
 # df = data.all.war
 #####
 # plot hourly##########
+df = data.all.war
 plot.hrly.func <- function(df,
                            pdf.fn = "maespa trans vs hp hrly.pdf",
                            l.base = 0.8){
@@ -601,7 +603,6 @@ par(mfrow=c(3,1),mar=c(0,5,1,1))
 # df = data.all.war[data.all.war$PAR >1,]
 plot.hrly.func(data.all.war)
 
-range(data.all.war$PAR)
 
 # plot.hrly.func(data.all.war)
 # sum(df$sap)/2

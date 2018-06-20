@@ -1,6 +1,6 @@
 rings=2
 # read daily fluxes############
-data.both.sap<- readRDS("mastra and sap.rds")
+data.both.sap<- readRDS("output/maestraVPD/mastra and sap.rds")
 # get start and end day
 con.ls <- readLines("Rings/Ring1/runfolder/confile.dat")
 
@@ -16,8 +16,8 @@ ed <- gsub("'","",ed)
 
 e.date <- as.Date(ed,"%d/%m/%y")
 
-
-years <- as.numeric(e.date-s.date)/365
+rm(sd)
+years <- as.numeric(e.date-s.date)/365.25
 # plot
 # e 1 4 5 
 # a 2 3 6
@@ -26,7 +26,7 @@ pdf("gpp.plot.pdf",width = 8,height = 6)
 # par(mar=c(4,5,2,5))
 palette(c("brown1","brown2","brown4","cadetblue1","cadetblue3","deepskyblue"))
 par(mfrow=c(2,1))
-par(mar=c(0,5,2,5))
+
 
 # plot monthly gpp####
 # with(data.both.sap,
@@ -54,30 +54,96 @@ par(mar=c(0,5,2,5))
 # legend("top",legend = paste0("R",1:6),col=1:6,pch=15,horiz = 1,bty = 'n',cex=0.8)
 library(lubridate)
 data.both.sap$mon <- month(data.both.sap$Date)
-
+data.both.sap$mon <- as.factor(data.both.sap$mon)
+levels(data.both.sap$mon ) <- month.abb[1:12]
 # data.sub.df <- data.both.sap[,c("GPP","mon")]
 library(doBy)
-data.sub.df.tp <- summaryBy(GPP~mon + Ring,
-                         data = data.both.sap[,c("GPP","mon","Ring")],
+data.sub.df.tp <- summaryBy(GPP + Trans ~mon + Ring,
+                         data = data.both.sap[,c("GPP","Trans","mon","Ring")],
                          FUN = mean,na.rm=TRUE,
                          keep.names = TRUE)
+data.all.sum <- data.sub.df.tp
+data.sub.df.sd <- summaryBy(GPP + Trans ~ mon + Ring,
+                            data = data.both.sap[,c("GPP","Trans","mon","Ring")],
+                            FUN = sd,na.rm=TRUE)
+
+# plot gpp
+data.sub.df.sd.spread <- spread(data.sub.df.sd[,c("GPP.sd","mon","Ring")],"mon","GPP.sd")
+data.sub.df.sd <- data.sub.df.tp[,-1][c(1,4,5,2,3,6),]
 library(tidyr)
 
-data.sub.df.tp <- spread(data.sub.df.tp,"mon","GPP")
+data.sub.df.tp <- spread(data.sub.df.tp[,c("GPP","mon","Ring")],"mon","GPP")
 data.sub.df <- data.sub.df.tp[,-1][c(1,4,5,2,3,6),]
+par(mar=c(0,5,1,1))
+# barplot(as.matrix(data.sub.df),
+#         ylab=expression(GPP~(g~C~m^-2~d^-1)), 
+#         xlab=" ",
+#         beside=TRUE,
+#         names.arg = rep(" ",12),
+#         col=palette())
 
-barplot(as.matrix(data.sub.df),
-        ylab=expression(GPP~(g~C~m^-2~d^-1)), 
-        xlab=" ",
-        beside=TRUE,
-        names.arg = rep(" ",12),
-        col=palette())
+
+barCenters <- barplot(as.matrix(data.sub.df),
+                      ylab=expression(GPP~(g~C~m^-2~d^-1)), 
+                      xlab=" ",
+                      beside=TRUE,
+                      names.arg = rep(" ",12),
+                      col=palette())
 legend("top",legend = paste0("R",c(1,4,5,2,3,6)),col=1:6,pch=15,horiz = 1,bty = 'n',cex=0.8)
+
+tabbedMeans <- as.vector(as.matrix(data.sub.df))
+tabbedSE <- as.vector(as.matrix(data.sub.df.sd)) / sqrt(years) / 30.5
+segments(barCenters, tabbedMeans - tabbedSE , barCenters,
+         tabbedMeans + tabbedSE, lwd = 1)
+
+arrows(barCenters, tabbedMeans - tabbedSE * 2, barCenters,
+       tabbedMeans + tabbedSE * 2, lwd = 1, angle = 90,
+       code = 3, length = 0.02)
+
+
+# plot trans
+
+data.sub.df.sd.trans.spread <- spread(data.sub.df.sd[,c("Trans.sd","mon","Ring")],"mon","Trans.sd")
+data.sub.df.sd <- data.sub.df.tp[,-1][c(1,4,5,2,3,6),]
+library(tidyr)
+
+data.sub.df.tp.trans <- spread(data.all.sum[,c("Trans","mon","Ring")],"mon","Trans")
+data.sub.df.trans <- data.sub.df.tp.trans[,-1][c(1,4,5,2,3,6),]
+par(mar=c(5,5,1,1))
+
+
+barCenters <- barplot(as.matrix(data.sub.df.trans),
+                      ylab=expression(Transpiration~(kg~m^-2~d^-1)), 
+                      xlab=" ",
+                      beside=TRUE,
+                      names.arg = month.abb[1:12],
+                      col=palette())
+# legend("top",legend = paste0("R",c(1,4,5,2,3,6)),col=1:6,pch=15,horiz = 1,bty = 'n',cex=0.8)
+
+tabbedMeans <- as.vector(as.matrix(data.sub.df.trans))
+tabbedSE <- as.vector(as.matrix(data.sub.df.sd)) / sqrt(years) / 30.5
+segments(barCenters, tabbedMeans - tabbedSE , barCenters,
+         tabbedMeans + tabbedSE, lwd = 1)
+
+arrows(barCenters, tabbedMeans - tabbedSE*2 , barCenters,
+       tabbedMeans + tabbedSE *2, lwd = 1, angle = 90,
+       code = 3, length = 0.02)
+
 # plot lai####
-par(mar=c(4,5,2,5))
+par(mar=c(5,5,1,1))
+# barplot(as.matrix(data.sub.df),
+#         ylab=expression(GPP~(g~C~m^-2~d^-1)), 
+#         xlab=" ",
+#         beside=TRUE,
+#         names.arg = rep(" ",12),
+#         col=palette())
+# legend("top",legend = paste0("R",c(1,4,5,2,3,6)),col=1:6,pch=15,horiz = 1,bty = 'n',cex=0.8)
+
+
+
 with(data.both.sap,
      plot(rep(-10,nrow(data.both.sap))~Date,
-          ylim=c(0,1.5),
+          ylim=c(0,2),
           ylab=expression(LAI~(m^2~m^-2)),
           # ylab=" ",
           type="l",
@@ -105,7 +171,7 @@ for (i in 1:6){
   rings <- sprintf("R%s",i)
   with(data.both.sap[data.both.sap$Ring == rings,],
        plot(LAI-0.8~Date,
-            ylim=c(0,1.2),
+            ylim=c(0,2),
             ylab=" ",
             xlab=" ",
             type="l",
@@ -117,7 +183,7 @@ for (i in 1:6){
 }
 
 # plot rainfall#####
-par(mar=c(4,5,1,5))
+par(mar=c(4,5,1,1))
 with(data.both.sap[data.both.sap$Ring == "R4",],
      plot(PPT~Date,
           ylim=c(0,60),

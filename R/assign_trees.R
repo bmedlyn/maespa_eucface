@@ -1,5 +1,7 @@
-update.tree.f <- function(lai.test,lai.base,radius = 12.5){
-   #ring radius; m
+update.tree.f <- function(lai.test,lai.base,radius = 12.5,
+                          startDate,
+                          endDate){
+  #ring radius; m
   zero.position <- radius 
 
   # Update trees and confile with real coordinations and la
@@ -63,8 +65,12 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5){
   }
   
   #the LAI is given by the product of actual LAI of the ring and ratio
+  lai.base <- c(0.777,0.788,0.697,0.736,1.007,0.641)
   for (i in 1:6){
-    sm[[i]]$LA <- (lai.test * sm[[i]]$LAIsmooth - lai.base)*pi*radius^2
+    sm[[i]]$LA <- lai.test * (sm[[i]]$LAIsmooth - lai.base[i])*pi*radius^2
+    sm[[i]] <-  sm[[i]][sm[[i]]$Date > as.Date(startDate) &
+                          sm[[i]]$Date < as.Date(endDate),]
+    endDate = endDate
     sm[[i]]$Date <- format(sm[[i]]$Date, "%d/%m/%y")
     
   }
@@ -248,6 +254,7 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5){
                               yslope	=	0,
                               bearing	=	-90,
                               notrees	=	length(coord_H_D_byRing[[i]]$Tree)+srrounding.tree))
+    
   }
   
   writeLines("trees updated")

@@ -37,7 +37,7 @@ makecurves <- function(fname) {
   
   data <- read.csv(fname) 
   
-  fits1 <- fitacis(data, "Curve", fitmethod="bilinear", Tcorrect=FALSE,useRd=TRUE)
+  fits1 <- fitacis(data, "Curve", fitmethod="bilinear", Tcorrect=FALSE,useRd=FALSE, fitTPU=TRUE)
   # fits2 <- fitacis(data, "Curve", fitTPU=T, Tcorrect=FALSE)
   
   # pdf(paste0(dir,"/TPU_ornot.pdf"), width=9, height=5)
@@ -60,16 +60,15 @@ makedata<- function(fname, fit) {
   
   ret$maxCi <- sapply(fit,function(x)max(x$df$Ci))
   ret$minCi <- sapply(fit,function(x)min(x$df$Ci))
-  
+  ret$Ts<-sapply(fit, function(x)mean(x$df$Tleaf))
   #merge with original data frame
   data <- read.csv(fname) 
   ret <- merge(ret,data,by="Curve")
   ret <- ret[!duplicated(ret[,c("Curve")]),]
   ret <- subset(ret,R2 > 0.99) #criteria to get best fitted curves 
   
-  ret$TsK <- ret$Tleaf+273.15
-  ret$Tsq <- ret$Tleaf * ret$Tleaf
-  
+  ret$TsK <- ret$Ts+273.15
+  ret$Tsq <- ret$Ts * ret$Ts
   return(ret)
 }
 
@@ -158,28 +157,17 @@ get.t.response.func <- function(data.path){
   return(see)
 }
 
-# function that update phy.dat#####
-update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
-  # data need to be on hiev
-  # get vcmax jmax t response####
-  if(!file.exists("cache/ecu_t_response.rds")){
-    t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
-    saveRDS(t.response.df,"cache/ecu_t_response.rds")
-  }
-  t.response.df <- readRDS("cache/ecu_t_response.rds")
-  # fit eucface aci to get vcmax and jmax####
-  if(!file.exists("cache/ecu_aci_sum.rds")){
-  euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
- # see <-  read.csv("data/E_teret_A-Ci_temperature_curves.csv")
+# fit jmax and ncmax with t correction####
+fit.aci.func <- function(euc.acis.df){
   # data clean
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo < 50,]
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo > -2,]
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
   euc.acis.df <- euc.acis.df[complete.cases(euc.acis.df$Number),]
-  # # plot to check data
+  # # # plot to check data
   # plot(Photo~Ci,data = euc.acis.df[euc.acis.df$Number == 478,])
-  library(plantecophys)
-  euc.fit <- fitacis(euc.acis.df,group="Number",Tcorrect=TRUE,fitmethod = c("default"),
+  # library(plantecophys)
+  euc.fit <- fitacis(euc.acis.df,group="Number",Tcorrect=TRUE,fitmethod = c("bilinear"),
                      varnames = list(ALEAF = "Photo",Tleaf = "Tleaf", 
                                      Ci = "Ci", PPFD = "PARi"),
                      EaV = t.response.df["Ea","Vcmax"]*1000, 
@@ -187,7 +175,7 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                      delsC = t.response.df["delS","Vcmax"]*1000, 
                      EaJ = t.response.df["Ea","Jmax"]*1000, 
                      EdVJ = 2e+05, delsJ = t.response.df["delS","Jmax"]*1000)
-   
+  
   see <- Filter(function(x) length(x)>1, euc.fit)
   euc.coef <- as.data.frame(do.call(rbind,sapply(see,function(x) out.df <- data.frame(coef(x)))))
   names(euc.coef) <- c("Vcmax","Jmax","Rd")
@@ -202,12 +190,13 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   euc.all.df$Ring[is.na(euc.all.df$Ring)] <- 3
   euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) < 13] <- 
     substr(euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) <13],2,12)
-
+  
   euc.all.df$Date[nchar(euc.all.df$Date) > 13] <- 
     substr(euc.all.df$Date[nchar(euc.all.df$Date) > 13 ],5,15)
   euc.all.df$Date[euc.all.df$Date == "10-Oct-16"] <- "Oct 10 2016"
   euc.all.df$Date <-  as.Date(euc.all.df$Date,"%b %d %Y")
   
+  euc.all.df <- euc.all.df[!duplicated(euc.all.df[,c("Number")]),]
   # get ring average
   euc.sub.df <- data.frame(Campaign = euc.all.df$Campaign,
                            Date = euc.all.df$Date,
@@ -227,53 +216,47 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   euc.sum.df$Date <- format(as.Date(euc.sum.df$Date), format=c("%d/%m/%y")) 
   
   saveRDS(euc.sum.df,"cache/ecu_aci_sum.rds")
-  }
-  euc.sum.df <- readRDS("cache/ecu_aci_sum.rds")
-  euc.sum.df <- euc.sum.df[complete.cases(euc.sum.df),]
-  # functions for Rd T response####
-  fit.rd.t.function <- function(fn){
-    rdark.csv <- read.csv(fn)
-    
-    rdark.ls <- split(rdark.csv,rdark.csv$Tree)
-    
-    # Rd(T)=RD⋅exp(Q10F(TAIR–RTEMP))
-    fit.rd.func <- function(df){
-      nls(Photo~rd.25*exp(q10*(Tleaf - 25)),
-          data = df,
-          start=list(rd.25=-1,q10=0.05))
-    }
-    
-    
-    fit.all <- fit.rd.func(rdark.csv)
-    
-    fit.ls <- lapply(rdark.ls,fit.rd.func)
-    
-    coef.ls <- lapply(fit.ls,coef)
-    coef.ls <- lapply(coef.ls,function(df){t(as.data.frame(df))})
-    
-    
-    rd.par.df <- do.call(rbind,coef.ls)
-    row.names(rd.par.df) <- NULL
-    rd.par.df <- as.data.frame(rd.par.df)
-    rd.par.df$tree <- names(rdark.ls)
-    
-    
-    rd.par.df$ring <- substr(rd.par.df$tree,2,2)
-    library(doBy)
-    
-    rd.sum.df <- summaryBy(rd.25 + q10 ~ ring,
-                           data = rd.par.df,
-                           FUN = mean,na.rm=TRUE,
-                           keep.names = TRUE)
-    return(rd.sum.df)
+}
+# functions for Rd T response####
+fit.rd.t.function <- function(rdark.csv){
+  # rdark.csv <- read.csv(fn)
+  
+  # rdark.ls <- split(rdark.csv,rdark.csv$CurveID)
+  
+  # Rd(T)=RD⋅exp(Q10F(TAIR–RTEMP))
+  fit.rd.func <- function(df){
+    nls(Photo~rd.25*exp(q10*(Tleaf - 25)),
+        data = df,
+        start=list(rd.25=-1,q10=0.05))
   }
   
-  rd.t.df <- fit.rd.t.function("download/euc data/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
+  fit.all <- fit.rd.func(rdark.csv)
+  coef.all <- coef(fit.all)
+  # fit.ls <- lapply(rdark.ls,fit.rd.func)
+  
+  # coef.ls <- lapply(fit.ls,coef)
+  # coef.ls <- lapply(coef.ls,function(df){t(as.data.frame(df))})
+  # 
+  # rd.par.df <- do.call(rbind,coef.ls)
+  # row.names(rd.par.df) <- NULL
+  # rd.par.df <- as.data.frame(rd.par.df)
+  # 
+  # rd.par.df$CurveID <- names(rdark.ls)
+  # rd.par.df$ring <- (rdark.csv$Ring[rdark.csv$CurveID == rd.par.df$CurveID])
+  # # apply(rd.par.df,1,function(x) unique(rdark.csv$Ring[rdark.csv$CurveID == x$CurveID]))
+  # # rd.par.df$ring <- substr(rd.par.df$tree,2,2)
+  # 
+  # library(doBy)
+  # 
+  # rd.sum.df <- summaryBy(rd.25 + q10 ~ ring,
+  #                        data = rd.par.df,
+  #                        FUN = mean,na.rm=TRUE,
+  #                        keep.names = TRUE)
+  return(coef.all)
+}
 
-  # get g1######
-  #g1 from Teresa's 2015 paper
-  spots <-read.csv(unz("download/euc data/Gimeno_spot.zip", "data/Gimeno_spot_Eter_gasExchange6400.csv"))
-  
+# fit g1####
+fit.g1.func <- function(spots){
   # spots <- read.csv("data/Gimeno_spot_Eter_gasExchange6400.csv")
   spots <- spots[is.na(spots$Tree) != TRUE,]
   spots$Campaign <- droplevels(spots$Campaign)
@@ -282,17 +265,66 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
   spots.g1$Date <- as.Date(as.character(spots.g1$Date),"%d/%m/%Y")
   spots.g1 <- spots.g1[complete.cases(spots.g1),]
   spots.g1 <- spots.g1[order(spots.g1$Date),]
-  spots.g1$Date <- format(spots.g1$Date,format="%d/%m/%y")
+  # spots.g1$Date <- format(spots.g1$Date,format="%d/%m/%y")
+  return(spots.g1)
+}
+# function that update phy.dat#####
+update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE){
+  # data need to be on hiev
+  # get vcmax jmax t response####
+  if(!file.exists("cache/ecu_t_response.rds")){
+    t.response.df <- get.t.response.func("data/E_teret_A-Ci_temperature_curves.csv")
+    saveRDS(t.response.df,"cache/ecu_t_response.rds")
+  }
+  t.response.df <- readRDS("cache/ecu_t_response.rds")
+  # fit eucface aci to get vcmax and jmax####
+  if(!file.exists("cache/ecu_aci_sum.rds")){
+    euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
+    fit.aci.func(euc.acis.df)
+  }
+  euc.sum.df <- readRDS("cache/ecu_aci_sum.rds")
+  euc.sum.df <- euc.sum.df[complete.cases(euc.sum.df),]
+  # get Rd~T####
+  # read rd T data
+  rd.df <- read.csv("download/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
+  # data clean
+  rd.df$Ring <-substr(rd.df$Tree,2,2)
+  rd.df <- rd.df[rd.df$Tleaf<40,]
+  wrong.curve <- rd.df$CurveID[rd.df$Tleaf < 40 & rd.df$Photo < -4]
+  rd.df <- rd.df[!rd.df$CurveID %in% wrong.curve,]
+  # fit the t response
+  rd.t.vec <- fit.rd.t.function(rd.df)
+  rd.t.df <- data.frame(rd.25  = rep(rd.t.vec[[1]],6),
+                        q10 = rep(rd.t.vec[[2]],6),
+                        ring=1:6)
   
+  # get g1######
+  # g1 from Teresa's 2015 paper
+  spots <- read.csv(unz("download/Gimeno_spot.zip", "data/Gimeno_spot_Eter_gasExchange6400.csv"))
+  spots.g1 <- fit.g1.func(spots)
+
+  if (swc.g1==TRUE){
+    if(file.exists('cache/g1 swc.rds')){
+      swc.50.df <- readRDS('cache/g1 swc.rds')
+    }else{
+      source("r/get fitted g1 with swc.R")
+    }
+  }else{
+    swc.50.df <- spots.g1
+  }
   #update eachRing####
   for (i in 1:6){
     #assign g1
-
+    if (swc.g1==TRUE){
+       g1.sub.df <- swc.50.df[swc.50.df$Ring == paste0('R',i),]
+    }else{
+      g1.sub.df <- swc.50.df
+    }
     fn <- sprintf("Rings/Ring%s/runfolder/phy.dat",i)
     replaceNameList(namelist="bbmgs",datfile=fn,
                     vals=list(g0 = 0,
-                              g1 = spots.g1$g1,
-                              dates = spots.g1$Date,
+                              g1 = g1.sub.df$g1,
+                              dates = format(g1.sub.df$Date,"%d/%m/%y"),
                               nsides = 1,
                               wleaf = 0.01, 
                               VPDMIN = 0.05,
@@ -300,60 +332,60 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
     )
     
     replaceNameList(namelist="bbgscon",datfile=fn,
-                    vals=list(nodates = length(spots.g1$Date),
-                              condunits = 'CO2'
+                    vals=list(nodates = length(g1.sub.df$Date),
+                              condunits = 'H2O'
                     ))
     
-    replaceNameList(namelist="bblgs",datfile=fn,
-                    vals=list(g0 = 0,
-                              g1 = rep(9,length(spots.g1$Date)),
-                              D0L = rep(1500,length(spots.g1$Date)),
-                              dates = spots.g1$Date,
-                              nsides = 1,
-                              wleaf = 0.01, 
-                              VPDMIN = 0.05,
-                              gamma = 0)
-    )
-  
+    # replaceNameList(namelist="bblgs",datfile=fn,
+    #                 vals=list(g0 = 0,
+    #                           g1 = rep(9,length(swc.50.df$Date)),
+    #                           D0L = rep(1500,length(swc.50.df$Date)),
+    #                           dates = spots.g1$Date,
+    #                           nsides = 1,
+    #                           wleaf = 0.01, 
+    #                           VPDMIN = 0.05,
+    #                           gamma = 0)
+    # )
+    
     # tuzet pars
     #gs paramteres for tuzet
     replaceNameList(namelist="bbtuz",datfile=fn, vals=list(g0 =0,
-                                            # g1 = 3.15, #zhou 2013
-                                            # sf = 1.82, #from zhou 2013
-                                            # psiv=-1.66, #from zhou 2013
-                                            
-                                            # g1 = 4.275, #Teresa
-                                            # sf = 0.82, #from p50 data brendon
-                                            # psiv=-3.6,#from p50 data brendon
-                                            
-                                            # g1 = 15, #Drake 2017
-                                            # sf = 1.49, #Drake 2017
-                                            # psiv=-0.95,#Drake 2017
-                                            
-                                            G1 = 15, 
-                                            SF = 24.728773, #Teresa 2016
-                                            PSIV=-3.990483,#Teresa 2016
-
-                                            nsides=1,
-                                            wleaf=0.02,
-                                            gamma=0,
-                                            VPDMIN=0.05 
+                                                           # g1 = 3.15, #zhou 2013
+                                                           # sf = 1.82, #from zhou 2013
+                                                           # psiv=-1.66, #from zhou 2013
+                                                           
+                                                           # g1 = 4.275, #Teresa
+                                                           # sf = 0.82, #from p50 data brendon
+                                                           # psiv=-3.6,#from p50 data brendon
+                                                           
+                                                           # g1 = 15, #Drake 2017
+                                                           # sf = 1.49, #Drake 2017
+                                                           # psiv=-0.95,#Drake 2017
+                                                           
+                                                           G1 = 15, 
+                                                           SF = 24.728773, #Teresa 2016
+                                                           PSIV=-3.990483,#Teresa 2016
+                                                           
+                                                           nsides=1,
+                                                           wleaf=0.02,
+                                                           gamma=0,
+                                                           VPDMIN=0.05 
     ))
-
+    
     #Vcmax and Jmax
     options(scipen=999)
     
     if(vj.ratio.test == FALSE){
-      jmax.use = euc.sum.df$Jmax[euc.sum.df$Ring == i]
+      vcmax.use = euc.sum.df$Vcmax[euc.sum.df$Ring == i]
     }else{
-      jmax.use = vj.ratio * euc.sum.df$Vcmax[euc.sum.df$Ring == i]
+      vcmax.use = vj.ratio * euc.sum.df$Vcmax[euc.sum.df$Ring == i]
     }
-
+    
     replaceNameList(namelist="jmax",datfile=fn,
-                    vals=list(values=jmax.use,
+                    vals=list(values=euc.sum.df$Jmax[euc.sum.df$Ring == i],
                               dates =euc.sum.df$Date[euc.sum.df$Ring == i]))
     replaceNameList(namelist="Vcmax",datfile=fn,
-                    vals=list(values=euc.sum.df$Vcmax[euc.sum.df$Ring == i],
+                    vals=list(values=vcmax.use,
                               dates =euc.sum.df$Date[euc.sum.df$Ring == i]))
     
     replaceNameList(namelist="jmaxcon",datfile=fn,
@@ -365,13 +397,13 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio ){
                     vals=list(nolayers = 1,
                               noages = 1,
                               nodates = length(euc.sum.df$Date[euc.sum.df$Ring == i])))
-
-
+    
+    
     replaceNameList(namelist="VCMAXPARS",datfile=fn,
                     vals=list(EAVC = t.response.df["Ea","Vcmax"]*1000,
                               EDVC = 200000,
                               DELSC = t.response.df["delS","Vcmax"]*1000
-                              ))
+                    ))
     # THETA, EAVJ, EDVJ, DELSJ, AJQ, IECO 
     replaceNameList(namelist="JMAXPARS",datfile=fn,
                     vals=list(THETA =  restult.lrc$theta,

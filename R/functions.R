@@ -321,22 +321,27 @@ GetAverage <- function (x) {
   return(y) 
 }
 
-getAllRings<-function(DayFlux,InputValue){
+getAllRings<-function(DayFlux,InputValue,watbal.d){
   ##Data process#####
   DailyAverage.flux <- list()
   DailyAverage.input <- list()
   DailyAverage.Ring <- list()
   for (i in 1:6){
-    DailyAverage.flux[[i]] <- summaryBy(totPs + totRf + absPAR + totLE1~DOY,
+    DailyAverage.flux[[i]] <- summaryBy(totPs + totRf + absPAR + totLE1 ~ DOY,
                                         data = DayFlux[[i]],
                                         FUN = sum,na.rm = TRUE)
     names(DailyAverage.flux[[i]]) <- c("DOY","GPP","Ra","absPAR","le")
+    
+    DailyAverage.flux[[i]]$soil.e <- watbal.d[[i]]$soilevap
     
     DailyAverage.input[[i]] <- GetAverage(InputValue[[i]])
     DailyAverage.input[[i]]$Ring <- i
     DailyAverage.input[[i]]$DOY <- c(1:nrow(DailyAverage.input[[i]])) 
     DailyAverage.input[[i]] <- subset(DailyAverage.input[[i]],DOY <= nrow(DailyAverage.flux[[i]]))
+    
+    
     DailyAverage.Ring[[i]] <- merge(DailyAverage.flux[[i]] ,DailyAverage.input[[i]],by="DOY")
+    
   }
   
 #   #merge data sets

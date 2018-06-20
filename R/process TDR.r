@@ -1,0 +1,27 @@
+swc.day.ls <- list()
+for ( i in 1:6){
+  
+  swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",i),
+                         startDate = min(hr.swc.lai.df.1314$Date),
+                         endDate = max(hr.swc.lai.df.1314$Date))
+  
+  swc.df <- subset(swc.df,select = c("Date",
+                                     "DateTime",
+                                     "Theta5_1_Avg","Theta5_2_Avg",
+                                     "Theta30_1_Avg","Theta30_2_Avg",
+                                     "Theta75_1_Avg","Theta75_2_Avg"))
+  
+  swc.df$swc.0.5 <- (swc.df$Theta5_1_Avg + swc.df$Theta5_2_Avg)/2
+  
+  swc.df$swc.5.30 <- (swc.df$Theta30_1_Avg +swc.df$Theta30_2_Avg)/2
+  
+  swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
+  
+  swc.day.ls[[i]] <- data.table(swc.df)[,list(Ring = paste0("R",i),
+                                              swc.tdr.5 = mean(swc.0.5, na.rm=TRUE),
+                                              swc.tdr.30 = mean(swc.5.30, na.rm=TRUE),
+                                              swc.tdr.75 = mean(swc.30.75, na.rm=TRUE)),
+                                        by = Date]
+}
+
+swc.day.df <- do.call(rbind,swc.day.ls)

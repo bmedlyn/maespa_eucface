@@ -1,6 +1,10 @@
+saturate.vp.func <- function(Tc,a=6.12,m=7.59,Tn=240.73){
+  # T = Temperature (°C)
+  VPS <- a*10^(m*Tc/(Tc+Tn))
+  return(VPS)
+}
+
 make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
-  
-  
   # # choose only the days with lai######################################################################################
   DATES <- sm[[Ring]]$Date
 
@@ -16,7 +20,7 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
     endDate <- as.Date(endDate)
   }
 
-  # ROS weather data
+  # ROS weather data#####
   # "FACE_R4_T1_Rain"
   # instead of ecuface met data, the model uses met data from ROS
   # i have tested rainfall and there is no difference at all
@@ -25,11 +29,11 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
   ros15 <- downloadTOA5("ROS_WS_Table15",
                         startDate = startDate,
                         endDate = endDate)
-  ros05 <- downloadTOA5("ROS_WS_Table05",
-                        startDate = startDate,
-                        endDate = endDate)
+  # ros05 <- downloadTOA5("ROS_WS_Table05",
+  #                       startDate = startDate,
+  #                       endDate = endDate)
   # startDate = "2014-01-01"
-  # endDate = "2014-01-02"
+  # endDate = "2017-01-02"
   # fcp <- downloadTOA5(c("FACE","FCPLOGG"), startDate=startDate, endDate=endDate,
   #                     maxnfiles=500, tryoffline=TRUE, quiet=TRUE)
   # 
@@ -42,24 +46,21 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
   # 
   # names(fcp2.sum) <- c("DateTime","WindSpeed", "air_pressure")
   
-  ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,30)),
-                                             PPFD=mean(PPFD_Avg, na.rm=TRUE),
-                                             Tair=mean(AirTC_Avg, na.rm=TRUE),
-                                             RH=mean(RH, na.rm=TRUE)))
+  # ros05_30 <- as.data.frame(dplyr::summarize(group_by(ros05,DateTime=nearestTimeStep(DateTime,30)),
+  #                                            # PPFD=mean(PPFD_Avg, na.rm=TRUE),
+  #                                            Tair=mean(AirTC_Avg, na.rm=TRUE),
+  #                                            RH=mean(RH, na.rm=TRUE)))
   ros15_30 <- as.data.frame(dplyr::summarize(group_by(ros15,DateTime=nearestTimeStep(DateTime,30)),
                                              Rain=sum(Rain_mm_Tot, na.rm=TRUE)))
   
-  ros.1 <- merge(ros15_30, ros05_30)
+  # ros.1 <- merge(ros15_30, ros05_30)
   # ros <- merge(ros.1, fcp2.sum)
-  ros <- ros.1
-  #replace below zero PAR with zero 
-  ros$PPFD[ros$PPFD<0] <- 0
+  ros <- ros15_30
 
- 
   #get CO2 ######################################################################################
-  # startDate = "2014-01-01"
-  # endDate = "2015-01-02"
-  # Ring = 1
+# startDate = "2014-06-01"
+# endDate = "2015-12-31"
+# Ring=2
   fn <- sprintf("R%s_FCPLOGG_R",Ring)
   Rawdata <- downloadTOA5(fn, 
                           maxnfiles = 600, 
@@ -80,34 +81,46 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
   CO2Data$Concentration.1Min[CO2Data$Concentration.1Min < 350] <- 350
 
   CO2Data$DateTime <- nearestTimeStep(CO2Data$DateTime, 30, "ceiling")
+  
+  
+  
+  CO2Data$WindSpeed[CO2Data$WindSpeed < 0] <- NA
+  
+  CO2Data$IRGA.Pressure[CO2Data$IRGA.Pressure < 900] <- NA
+  CO2Data$IRGA.Pressure[CO2Data$IRGA.Pressure > 1100] <- NA
 
   sumCO2 <- data.table(CO2Data)[,list(CO2=mean(Concentration.1Min, na.rm=TRUE),
                                       PRESS = mean(IRGA.Pressure, na.rm=TRUE),
-                                      WindSpeed=mean(WindSpeed, na.rm=TRUE)
+                                      WindSpeed=mean(WindSpeed, na.rm=TRUE),
+                                      PPFD=mean(PPFD, na.rm=TRUE),
+                                      Tair=mean(Air.Temp, na.rm=TRUE),
+                                      RH=mean(IRGA.Vapor.Pressure/saturate.vp.func(Air.Temp), na.rm=TRUE)
                                       ),
                                 by = DateTime]
   
-  # plot(PRESS~DateTime,data=sumCO2,ylim=c(950,1050),pch=15,cex=0.2)
   # Fill missing values
   library(zoo)
   sumCO2$CO2 <- na.locf(sumCO2$CO2)
   
-  sumCO2$WindSpeed[sumCO2$WindSpeed < 0] <- NA
+  # sumCO2$WindSpeed[sumCO2$WindSpeed < 0] <- NA
+  sumCO2$PPFD[sumCO2$PPFD < 0] <- 0
+  sumCO2$PPFD <- na.locf(sumCO2$PPFD)
+  # plot(sumCO2$PPFD~sumCO2$DateTime)
+  # sumCO2$WindSpeed[sumCO2$WindSpeed < 0] <- NA
   sumCO2$WindSpeed <- na.locf(sumCO2$WindSpeed)
   
   sumCO2$PRESS[sumCO2$PRESS < 900] <- NA
   sumCO2$PRESS[sumCO2$PRESS > 1100] <- NA
   sumCO2$PRESS <- na.locf(sumCO2$PRESS)
   sumCO2$PRESS <- sumCO2$PRESS * 100 #times 100 to convert unit from hPa to Pa
-  #write the CO2 into a RDS file
-  # saveRDS(sumCO2,sprintf("R%sCO230Min.rds",Ring))
-  
+  sumCO2$Tair[sumCO2$Tair>50] <- NA
+  sumCO2$Tair <- na.locf(sumCO2$Tair)
+  sumCO2$RH[sumCO2$RH>100] <- 100
+  sumCO2$RH <- na.locf(sumCO2$RH)
   CaData <- sumCO2
-  
+  # plot(CaData$RH~CaData$DateTime)
   #merge all the data ######################################################################################
-  
   AllData <- merge(CaData,ros,by="DateTime")
-  
   
   # Make sure there are no gaps!######################################################################################  
   # Merge with full timeseries...
@@ -120,7 +133,7 @@ make_met <- function(Ring,startDate= NULL,endDate = NULL,fix.ca,CA.in){
   met$RH <- met$RH / 100
   
   names(met) <- c("Date","CA","PRESS","WIND",
-                  "PPT","PAR","TAIR","RH")
+                  "PAR","TAIR","RH","PPT")
   met$Date <- as.Date(met$Date)
   
   if(fix.ca==TRUE){met$CA = CA.in}
@@ -139,11 +152,11 @@ run_maespa_eucface <- function(ring,runfolder.path,
                                CA.in){
 
   o <- getwd()
-  setwd(runfolder.path)
   on.exit(setwd(o))
 
   # Smoothed LAI
   lais <- sm[[ring]]$LAIsmooth
+  
   # Calculate individual tree leaf areas.
   DATES <- format(sm[[ring]]$Date, "%d/%m/%y")
   
@@ -169,7 +182,6 @@ run_maespa_eucface <- function(ring,runfolder.path,
                           CA.in=CA.in)
   
   #get initial swc from hiev
-  
   swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",ring),
                          startDate = startDate,
                          endDate = endDate)
@@ -183,17 +195,19 @@ run_maespa_eucface <- function(ring,runfolder.path,
   swc.df$swc.0.30 <- (swc.df$Theta5_1_Avg + swc.df$Theta5_2_Avg + swc.df$Theta30_1_Avg +swc.df$Theta30_2_Avg)/4
   
   swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
-  
-  # swc.day.df <- data.table(swc.df)[,list(swc.30=mean(swc.0.30, na.rm=TRUE),
-  #                                        swc.75 = mean(swc.30.75, na.rm=TRUE)),
-  #                                  by = Date]
-  # 
-  # swc.day.df$swc.30 <- swc.day.df$swc.30/100
-  # swc.day.df$swc.75 <- swc.day.df$swc.75/100
-  
+
+  file.copy('maespa exe/intelMaespa.exe',runfolder.path,overwrite = TRUE)
+  file.copy('maespa exe/MAESPA64.exe',runfolder.path,overwrite = TRUE)
+  setwd(runfolder.path)
   # Set simulation dates for given time
   replaceNameList("dates","confile.dat", vals=list(startdate=format(as.Date(startDate), "%d/%m/%y"),
                                                    enddate=format(as.Date(endDate), "%d/%m/%y")))
+  
+  # set up understoru files 
+  replaceNameList("SPECIES","confile.dat", vals=list(nspecies = 1,
+                                                     speciesnames = c('canopy'),
+                                                     phyfiles = c('phy.dat'),
+                                                     strfiles = c('str.dat')))
   # set date range
   replacePAR("met.dat", "startdate", "metformat", format(as.Date(startDate), "%d/%m/%y"))
   
@@ -208,6 +222,11 @@ run_maespa_eucface <- function(ring,runfolder.path,
     }
   # turn on resp simulation
   replacePAR("confile.dat", "ioresp","control", newval=1)
+  
+  # max zenith angle
+  replaceNameList("diffang","confile.dat",vals=list(nolay = 6,
+                                                    nzen = 20,
+                                                    naz= 20))
 
   # change simulation for TUzet model and add parameteres
   replacePAR("confile.dat", "modelgs","model", newval=model.num)
@@ -272,17 +291,18 @@ run_maespa_eucface <- function(ring,runfolder.path,
   metnodate <- subset(met[[ring]], select = -Date)
   #
   #fill missing value
+  # c("Date","CA","PRESS","WIND",
+  #   "PAR","TAIR","RH","PPT")
+  metnodate$WIND <- na.locf(metnodate$WIND)
+  metnodate$PRESS <- na.locf(metnodate$PRESS)
   metnodate$PPT <- na.locf(metnodate$PPT)
   metnodate$PAR <- na.locf(metnodate$PAR)
+  
   metnodate$TAIR <- na.locf(metnodate$TAIR)
   metnodate$RH <- na.locf(metnodate$RH)
   metnodate$CA <- na.locf(metnodate$CA)
-
-  # # s.date <- format(min(met[[ring]]$Date),"%d/%m/%y")
-  # # e.date <- format(max(met[[ring]]$Date),"%d/%m/%y")
-  # # s.date <- format(as.Date("2014/01/01"),"%d/%m/%y")
-  # # e.date <- format(as.Date("2014/01/15"),"%d/%m/%y")
-  # 
+  
+  metnodate$PAR[metnodate$PAR < 0] <- 0
   # # # place in met.dat
   replacemetdata(metnodate, "met.dat", columns=names(metnodate),
                  newmetfile="met.dat", khrs=48, setdates=TRUE)
@@ -290,30 +310,32 @@ run_maespa_eucface <- function(ring,runfolder.path,
   # run maespa
   print(sprintf("Ring %s start",ring))
   if(identical(TRUE,vc.vpd)){
-    # shell("maespaTest.exe")
     shell("intelMaespa.exe")
   }else{
     shell("maespa64.exe")
   }
   
   print(sprintf("Ring %s finished",ring))
-  # read output
-#   output[[ring]] <- readdayflux()
-#   return(output)
 }
 #eucGPP####
 eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:6,model.sel = 4,vc.vpd = FALSE,
                    vj.ratio.test = FALSE,
                    vj.ratio = 1.6,
                    fix.ca=FALSE,CA.in=400,
+                   o = getwd(),
+                   swc.g1=TRUE,
                    ...){
+ 
   time.start <- Sys.time()
-  # update.tree.f(...)
+  update.tree.f(...,
+                startDate= startDate,
+                endDate = endDate)
   update.phy.f(vj.ratio.test = vj.ratio.test,
-                       vj.ratio = vj.ratio,
+               vj.ratio = vj.ratio,
+               swc.g1=swc.g1,
                ...)
+
   for (ring in rings){
-    
     run_maespa_eucface(ring = ring,
                        runfolder.path = file.path(o,sprintf("Rings/Ring%s",ring),"runfolder/"),
                        hourly.data = hourly.data,

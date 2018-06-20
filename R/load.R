@@ -62,13 +62,13 @@ facelai$Date <- as.Date(facelai$Date)
 sm <- makesmoothLAI(facelai, how="byring", timestep="1 day")
 
 # get data from Hiev
-downloadCSV("FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv",topath = "download/euc data/")
-downloadHIEv(searchHIEv("EucFACE Fine root HIEv"),topath = "download/euc data/")
+downloadCSV("FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv",topath = "download/")
+downloadHIEv(searchHIEv("EucFACE Fine root HIEv"),topath = "download/")
 
 # get data from Gimeno 2016
 teresa.url <- paste0("http://research-data.westernsydney.edu.au/",
                      "redbox/verNum1.9/published/detail/",
                      "d879c312dcb2b23571b1dccdedb87c86/",
                      "Gimeno_spots_Eter_EucFACE.zip?preview=true")
-curl::curl_download(teresa.url,"download/euc data/Gimeno_spot.zip")
+curl::curl_download(teresa.url,"download/Gimeno_spot.zip")
 
