@@ -65,7 +65,6 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   }
   
   #the LAI is given by the product of actual LAI of the ring and ratio
-  lai.base <- c(0.777,0.788,0.697,0.736,1.007,0.641)
   for (i in 1:6){
     sm[[i]]$LA <- lai.test * (sm[[i]]$LAIsmooth - lai.base[i])*pi*radius^2
     sm[[i]] <-  sm[[i]][sm[[i]]$Date > as.Date(startDate) &
@@ -81,7 +80,8 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   treela <- list()
   for (i in 1:6) {
     
-    treela[[i]] <- matrix(0.01,nrow=length(coord_H_D_byRing[[i]]$ratio),
+    treela[[i]] <- matrix(0.01,
+                          nrow=length(coord_H_D_byRing[[i]]$ratio),
                           ncol=length(sm[[i]]$LA))
     
   }
@@ -194,7 +194,9 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   meanD <- mean(coord_H_D$DIAM01.2013)
   meanR <- mean((9.1*10^(-2)*coord_H_D$DBH^1.875)^0.5)
   meanLA<-c()
-  for (i in 1: length(treela[[1]][1,])){meanLA[i]<- mean(treela[[1]][,i])}
+  for (i in 1: length(treela[[1]][1,])){
+    meanLA[i]<- min(treela[[1]][,i])
+    }
   meanla <- matrix(rep(meanLA,srrounding.tree),ncol=srrounding.tree)
   meanCH <- 0.5*meanH
   meanTH <- meanH - meanCH 

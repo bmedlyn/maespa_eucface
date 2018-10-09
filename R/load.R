@@ -70,5 +70,5 @@ teresa.url <- paste0("http://research-data.westernsydney.edu.au/",
                      "redbox/verNum1.9/published/detail/",
                      "d879c312dcb2b23571b1dccdedb87c86/",
                      "Gimeno_spots_Eter_EucFACE.zip?preview=true")
-curl::curl_download(teresa.url,"download/Gimeno_spot.zip")
+# curl::curl_download(teresa.url,"download/Gimeno_spot.zip")
 

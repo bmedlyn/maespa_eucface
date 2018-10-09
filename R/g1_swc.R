@@ -1,24 +1,51 @@
 library(plantecophys)
 library(HIEv)
+library(doBy)
 # read neutron probe data ####
 swc.neutron.df <- read.csv("data/FACE_P0018_RA_NEUTRON_20120430-20180215_L1.csv")
 swc.neutron.df <- swc.neutron.df[swc.neutron.df$Location != "Outside",]
 swc.neutron.df$Date <- as.Date(as.character(swc.neutron.df$Date))
 swc.neutron.df$Ring <- as.character(swc.neutron.df$Ring)
 
-swc.neutron.ring.df <- doBy::summaryBy(VWC~Date+Ring,
-                                       data = swc.neutron.df[swc.neutron.df$Depth <= 50,],
-                                       FUN=mean,na.rm=TRUE,
-                                       keep.names = TRUE,id=~CO2)
+layers <- c(25,diff(unique(swc.neutron.df$Depth)[order(unique(swc.neutron.df$Depth))]))
+lay.df <- data.frame(Depth = unique(swc.neutron.df$Depth)[order(unique(swc.neutron.df$Depth))],
+                     layers = layers )
+swc.neutron.df <- merge(swc.neutron.df,lay.df)
+# swc.neutron.ring.df.300 <- doBy::summaryBy(VWC~Date+Ring,
+#                                            data = swc.neutron.df[swc.neutron.df$Depth <= 300,],
+#                                            FUN=mean,na.rm=TRUE,
+#                                            keep.names = TRUE,id= ~CO2)
 
-swc.neutron.ring.df$VWC[swc.neutron.ring.df$VWC<0] <- 0
-psl.e = -0.35 # MPA; from Duursma 2015
-swc.s = 0.6 #m3 m-3
-b = 4.3 #
+get.mean.vwc.func <- function(swc.neutron.df,depth.in){
+  test.df <- data.table(swc.neutron.df[swc.neutron.df$Depth <= depth.in,])[,list(
+    VWC = sum(VWC * layers) / depth.in
+  ),by = c('Date','Ring')]
+  return(test.df)
+}
 
-swc.neutron.ring.df$S.PSI <- psl.e*(swc.neutron.ring.df$VWC/100/swc.s)^-b/1000
+# swc.neutron.ring.df.300$VWC[swc.neutron.ring.df.300$VWC < 0] <- 0
+# swc.neutron.ring.df.300$vwc.300 <- swc.neutron.ring.df.300$VWC
+# 
+# swc.neutron.ring.df.400 <- doBy::summaryBy(VWC~Date+Ring,
+#                                            data = swc.neutron.df[swc.neutron.df$Depth <= 400,],
+#                                            FUN=mean,na.rm=TRUE,
+#                                            keep.names = TRUE,id=~CO2)
+# swc.neutron.ring.df.400$VWC[swc.neutron.ring.df.400$VWC < 0] <- 0
+# swc.neutron.ring.df.400$vwc.400 <- swc.neutron.ring.df.400$VWC
+# 
+# swc.neutron.ring.df <- merge(swc.neutron.ring.df.300[,c('Date','Ring','vwc.300')],swc.neutron.ring.df.400)
+
+swc.neutron.ring.df <- get.mean.vwc.func(swc.neutron.df,450)
+# use only numbers listed 
+# 25  50  75 100 125 150 200 250 300 350 400 450
+swc.neutron.ring.df$vwc.300 <- get.mean.vwc.func(swc.neutron.df,75)$VWC
+# psl.e = -0.35 # MPA; from Duursma 2015
+# swc.s = 0.6 #m3 m-3
+# b = 4.3 #
+# swc.neutron.ring.df$S.PSI <- psl.e*(swc.neutron.ring.df$VWC/100/swc.s)^-b/1000
+
 # get g1####
-fit.g1.func <- function(spots){
+fit.g1.func <- function(spots,byRing = TRUE){
   # spots <- read.csv("data/Gimeno_spot_Eter_gasExchange6400.csv")
   spots <- spots[is.na(spots$Tree) != TRUE,]
   spots$Date <- as.character(spots$Date)
@@ -26,11 +53,21 @@ fit.g1.func <- function(spots){
   spots$Date <- as.Date(as.character(spots$Date),"%d/%m/%Y")
   spots$Date[spots$Date > as.Date("2013-09-08") & spots$Date < as.Date("2013-09-15")] <- as.Date("2013-09-10")
   spots$Campaign <- droplevels(spots$Campaign)
+
+  if(byRing==TRUE){
   fit.spot <- fitBBs(spots,"group",gsmodel = c("BBOpti"))
   spots.g1 <- merge(coef(fit.spot),unique(spots[,c("Ring","Date","group","Campaign","Measurement")]),
                     by.x="group",by.y="group",all.y=FALSE)
   spots.g1 <- spots.g1[complete.cases(spots.g1),]
   spots.g1 <- spots.g1[order(spots.g1$Date),]
+  }else{
+    spots$Campaign <- as.character(spots$Campaign)
+    fit.spot <- fitBBs(spots,'Campaign',gsmodel = c("BBOpti"))
+    spots.g1 <- merge(coef(fit.spot),unique(spots[,c("Date","Campaign")]),
+                      by.x="group",by.y="Campaign",all.y=FALSE)
+    spots.g1 <- spots.g1[complete.cases(spots.g1),]
+    spots.g1 <- spots.g1[order(spots.g1$Date),]
+  }
   return(spots.g1)
 }
 
@@ -56,34 +93,19 @@ spots.g1.one <- doBy::summaryBy(g1 ~ Date + Campaign + Ring,
                                 data = spots.g1.one,keep.names = TRUE,FUN=mean,na.rm=TRUE)
 spots.g1 <- merge(spots.g1.ma,spots.g1.one,by=c("Date","Campaign","Ring"))
 spots.g1$Date[spots.g1$Campaign == "2013Nov"] <- as.Date("2013-11-07")
+
+# 
+spots.by.campaign <- fit.g1.func(spots,byRing = FALSE)
+spots.by.campaign <- summaryBy(.~group,data = spots.by.campaign,
+                               FUN=mean,keep.names = T,id=~Date)
 # get tdr swc####
-swc.day.ls <- list()
-for ( i in 1:6){
-  
-  swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",i),
-                         startDate = min(spots.g1$Date),
-                         endDate = max(spots.g1$Date))
-  
-  swc.df <- subset(swc.df,select = c("Date",
-                                     "DateTime",
-                                     "Theta5_1_Avg","Theta5_2_Avg",
-                                     "Theta30_1_Avg","Theta30_2_Avg",
-                                     "Theta75_1_Avg","Theta75_2_Avg"))
-  
-  swc.df$swc.0.5 <- (swc.df$Theta5_1_Avg + swc.df$Theta5_2_Avg)/2
-  
-  swc.df$swc.5.30 <- (swc.df$Theta30_1_Avg +swc.df$Theta30_2_Avg)/2
-  
-  swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
-  
-  swc.day.ls[[i]] <- data.table(swc.df)[,list(Ring = paste0("R",i),
-                                              swc.tdr.5 = mean(swc.0.5, na.rm=TRUE),
-                                              swc.tdr.30 = mean(swc.5.30, na.rm=TRUE),
-                                              swc.tdr.75 = mean(swc.30.75, na.rm=TRUE)),
-                                        by = Date]
+if(file.exists('cache/swc.day.df.rds')){
+  swc.day.df <- readRDS('cache/swc.day.df.rds')
+}else{
+  source('r/process TDR.r')
 }
 
-swc.day.df <- do.call(rbind,swc.day.ls)
+
 # get leaf wp####
 leaf.wp.df <- downloadCSV("Gimeno_spots_Eter_EucFACE_waterPotential.csv")
 library(doBy)
@@ -92,6 +114,11 @@ leaf.wp.df <- summaryBy(WP~Campaign+Ring+Measurement,
 leaf.wp.df.long<- tidyr::spread(leaf.wp.df, "Measurement","WP")
 
 spots.g1.wp <- merge(spots.g1,leaf.wp.df.long,by=c("Campaign","Ring"),all.x=TRUE)
+
+leaf.wp.by.campaign <- summaryBy(Midday + Morning + Predawn~Campaign,
+                                 data = leaf.wp.df.long,FUN=mean,na.rm=TRUE,keep.names = TRUE)
+
+spots.by.campaign.wp <- merge(spots.by.campaign,leaf.wp.by.campaign,by.y=c("Campaign"),by.x='group',all.x=TRUE)
 
 # leaf.wp.df$Campaign <- as.factor(leaf.wp.df$Campaign)
 # plot(WP~Campaign,data = leaf.wp.df[leaf.wp.df$Ring == "R1" & leaf.wp.df$Measurement == "Predawn",])
@@ -133,29 +160,47 @@ g1.swc.df <- merge(see,swc.day.df,by =c("Date","Ring"))
 g1.swc.df$swc.0.30.tdr <- (g1.swc.df$swc.tdr.5 + g1.swc.df$swc.tdr.30)/2
 g1.swc.df <- g1.swc.df[!duplicated(g1.swc.df),]
 g1.swc.df$Campaign <- droplevels(g1.swc.df$Campaign)
-g1.swc.df$swc.100 <- g1.swc.df$VWC / 100
-# #####
-g1.swc.df.sub <- g1.swc.df[g1.swc.df$Campaign != "2013Nov",]
+g1.swc.df$swc.100 <- g1.swc.df$vwc.300 / 100
 
-source("r/get ros g1 swc.r")
+neutron.by.campaign <- summaryBy(swc.100 + vwc.300~Campaign,data = g1.swc.df,
+                                 FUN=mean,na.rm=TRUE,keep.names = TRUE)
+
+g1.wp.swc.df.by.campaign <- merge(spots.by.campaign.wp,neutron.by.campaign,by.x='group',by.y='Campaign')
+g1.wp.swc.df.by.campaign$group <- droplevels(g1.wp.swc.df.by.campaign$group)
+par(mfrow=c(2,1),mar=c(5,5,1,1))
+library(ochRe)
+col.oz <- ochre_palettes$olsen_qual[6:2]
+palette(col.oz)
+plot(Predawn~vwc.300,data = g1.wp.swc.df.by.campaign,pch=16,col=group)
+# plot(Predawn~vwc.400,data = g1.wp.swc.df.by.campaign,pch=16,col=group)
+
+legend("bottomright",legend = c(levels(g1.wp.swc.df.by.campaign$group)),
+       col=c(palette()),pch=c(16,16,16,16),ncol = 1)
+# #####
+g1.swc.df.sub <- g1.swc.df#[g1.swc.df$Campaign != "2013Nov",]
+if(!file.exists('cache/ros.gs.rds')){
+  source("r/get ros g1 swc.r")
+}else{
+  eute.ros <- readRDS('cache/ros.gs.rds')
+}
+
 # 
 eute.ros$g1.norm <- eute.ros$g1 / (max(eute.ros$g1))
 
-fit.nl.ros <- nls(g1.norm~((TDR - swc.min) / (swc.max - swc.min))^q, 
-                  data = eute.ros,start=startlist,algorithm="port",
-                  lower=c(0.1,0,0.01),upper=c(0.6,0.0001,3))
+# fit.nl.ros <- nls(g1.norm~((TDR - swc.min) / (swc.max - swc.min))^q, 
+#                   data = eute.ros,start=startlist,algorithm="port",
+#                   lower=c(0.1,0,0.01),upper=c(0.6,0.0001,3))
 
 eute.ros$g1.norm <- (eute.ros$g1 - min(eute.ros$g1)) / (max(eute.ros$g1) - min(eute.ros$g1))
 g1.swc.df.sub$g1.norm <- (g1.swc.df.sub$g1 - min(g1.swc.df.sub$g1)) / 
   (max(g1.swc.df.sub$g1) - min(g1.swc.df.sub$g1))
 
-
-
+# # fitting
 startlist = list(swc.max=0.5,swc.min=0 ,q = 1)
-
-fit.nl.ros <- nls(g1.norm~((TDR - swc.min) / (swc.max - swc.min))^q, 
-                     data = eute.ros,start=startlist,algorithm="port",
-                  lower=c(0.1,0,0.01),upper=c(0.6,0.0001,3))
+# 
+# fit.nl.ros <- nls(g1.norm~((TDR - swc.min) / (swc.max - swc.min))^q, 
+#                      data = eute.ros,start=startlist,algorithm="port",
+#                   lower=c(0.1,0,0.01),upper=c(0.6,0.0001,3))
 
 fit.nl.g1norm <- nls(g1.norm~((swc.100 - swc.min) / (swc.max - swc.min))^q, 
                      data = g1.swc.df.sub,
@@ -165,56 +210,102 @@ fit.nl.g1norm <- nls(g1.norm~((swc.100 - swc.min) / (swc.max - swc.min))^q,
 test.df <- data.frame(g1 = c(eute.ros$g1,g1.swc.df.sub$g1),
                       swc = c(eute.ros$TDR,g1.swc.df.sub$swc.100))
 
-test.df$g1.norm <- (test.df$g1 - min(test.df$g1)) / 
-  (max(test.df$g1) - min(test.df$g1))
+# test.df <- data.frame(g1 = c(eute.ros$g1,g1.swc.df.sub$g1),
+#                       swc = c(eute.ros$TDR,g1.swc.df.sub$swc.tdr/100))
 
-test.df$g1.norm <- (test.df$g1 ) / (max(test.df$g1) )
-summary(lm(log(g1)~log(swc),data = test.df[test.df$g1 > 0,]))
-fit.nl.both <- nls(g1.norm~((swc - swc.min) / (swc.max - swc.min))^q, 
-                     data = test.df,
-                     start=startlist,algorithm="port",
-                     lower=c(0.1,0,0.1),upper=c(2,0,3))
+# test.df <- data.frame(g1 = c(g1.swc.df.sub$g1),
+#                       swc = c(g1.swc.df.sub$swc.tdr/100))
+test.df <- test.df[test.df$g1 > 0,]
+test.df <- test.df[complete.cases(test.df),]
+# summary(lm(log(test.df$g1)~log(test.df$swc)))
 
-saveRDS(fit.nl.both,"cache/fit.g1.swc.rds")
+# test.df$g1.norm <- (test.df$g1 - min(test.df$g1)) / 
+#   (max(test.df$g1) - min(test.df$g1))
+# plot(g1~swc,data = test.df)
+# test.df$g1.norm <- (test.df$g1 ) / (max(test.df$g1) )
+# summary(lm(log(g1)~log(swc),data = test.df))
+# fit.nl.both <- nls(g1.norm~((swc - swc.min) / (swc.max - swc.min))^q, 
+#                      data = test.df,
+#                      start=startlist,algorithm="port",
+#                      lower=c(0.1,0,0.1),upper=c(2,0,3))
 
-saveRDS(test.df,"cache/g1.euc.ros.rds")
+fit.nl.tdr <- nls(g1 ~ 4.3*((swc - swc.min) / (swc.max - swc.min))^q, 
+                   data = test.df,
+                   start=startlist,algorithm="port",
+                   lower=c(0.1,0,0.1),upper=c(2,0.1,3))
+# summary(fit.nl.tdr)
 
+test.df$g1.pred <- predict(fit.nl.tdr)
+test.df$g1.actual.pred <- test.df$g1.pred * (max(test.df$g1)) 
 
+# saveRDS(fit.nl.tdr,"cache/fit.g1.swc.rds")
+# 
+# saveRDS(test.df,"cache/g1.euc.ros.rds")
+# saveRDS(g1.swc.df,"cache/g1.swc.df.rds")
+# saveRDS(eute.ros,"cache/ros.g1.swc.df.rds")
+# 
+# fit.nl.tdr <- readRDS("cache/fit.g1.swc.rds")
+# test.df <- readRDS("cache/g1.euc.ros.rds")
+# g1.swc.df <- readRDS("cache/g1.swc.df.rds")
+# eute.ros <- readRDS("cache/ros.g1.swc.df.rds")
 
+# plot(log(g1)~log(swc),data = test.df)
 
+# test.df.tdr <- data.frame(g1 = c(eute.ros$g1,g1.swc.df.sub$g1),
+#                           swc = c(eute.ros$TDR,g1.swc.df.sub$swc.tdr/100))
 
+par(mfrow=c(1,1))
+par(mar=c(5,5,1,1))
+plot(g1~swc.100,data = g1.swc.df.sub,pch=16,col=Campaign,xlim=c(0,0.5),ylim=c(0,6),
+     xlab=expression(theta),ylab=expression(g[1]~(kPa^0.5)))
+points(g1~(TDR),data =eute.ros,pch=16,col="grey")
+lines(g1.pred ~ swc,data=test.df[order(test.df$swc),],col="black",lwd=2)
+theta.vec <- seq(0,0.5,0.001)
+g1.drake <- (theta.vec/0.6)^0.32*(max(test.df$g1) - min(test.df$g1)) + min(test.df$g1)
+lines(g1.drake ~ theta.vec,
+      col="black",lwd=2,lty='dashed')
+# legend("topleft",legend = c(paste0("xmax = ",format(coef(fit.nl.tdr)[[1]],digits = 2)),
+#                             "xmin = 0",
+#                             paste0("q = ",format(coef(fit.nl.tdr)[[3]],digits = 2))))
+legend("bottomright",legend = c("Drake et al., 2017a","All"),lty=c("dashed","solid",lwd=2),bty='n')
+legend("topleft",legend = c(levels(g1.swc.df.sub$Campaign)),
+       col=palette(),pch=c(16,16,16,16),ncol = 2,bty='n')
 
-
-
-
-test.df$g1.pred <- predict(fit.nl.both)
-test.df$g1.actual.pred <- test.df$g1.pred * (max(test.df$g1)) #- min(test.df$g1)) + min(test.df$g1)
+stop('nothing')
 # plot
 pdf("g1~swc.pdf",width = 8,height = 8)
 par(mfrow=c(2,2),mar=c(5,5,1,1))
-palette(rainbow(length(levels(g1.swc.df$Campaign))))
-plot(g1~c(VWC/100),data = g1.swc.df,pch=16,col=Campaign,xlim=c(0,0.35))
+# palette(rainbow(length(levels(g1.swc.df$Campaign))))
+library(ochRe)
+col.oz <- ochre_palettes$olsen_qual[6:2]
+# palette(tran.func(col.oz))
+palette(col.oz)
+plot(g1~c(swc.100),data = g1.swc.df,pch=16,col=Campaign,xlim=c(0,0.35))
 # # legend("bottomright",legend = c(levels(g1.swc.df$Campaign)),pch=16,col=c(palette()),bty='n')
 # legend("bottomright",legend = c(levels(g1.swc.df$Campaign),"ROS"),pch=16,col=c(palette(),"grey"),bty='n')
 # plot(g1~swc.100,data = g1.swc.df,pch=16,col=Campaign,xlim=c(0,0.35))
 # points(g1~(TDR),data =eute.ros,pch=16,col="grey")
 # legend("bottomright",legend = c(levels(g1.swc.df$Campaign),"ROS"),pch=16,col=c(palette(),"grey"),bty='n')
-plot(g1~swc.100,data = g1.swc.df.sub,pch=16,col=Campaign,xlim=c(0,0.35),ylim=c(0,6))
+par(mar=c(5,5,1,1))
+plot(g1~swc.100,data = g1.swc.df.sub,pch=16,col=Campaign,xlim=c(0,0.35),ylim=c(0,6),
+     xlab=expression(theta),ylab=expression(g[1]~(kPa^0.5)))
 points(g1~(TDR),data =eute.ros,pch=16,col="grey")
-lines(g1.actual.pred ~ swc,data=test.df[order(test.df$swc),],col="black",lwd=2)
+lines(g1.pred ~ swc,data=test.df[order(test.df$swc),],col="black",lwd=2)
 theta.vec <- seq(0,0.35,0.001)
 g1.drake <- (theta.vec/0.6)^0.32*(max(test.df$g1) - min(test.df$g1)) + min(test.df$g1)
 lines(g1.drake ~ theta.vec,
       col="black",lwd=2,lty='dashed')
-legend("topleft",legend = c(paste0("xmax = ",format(coef(fit.nl.both)[[1]],digits = 2)),
-                            "xmin = 0",
-                            paste0("q = ",format(coef(fit.nl.both)[[3]],digits = 2))))
-legend("bottomright",legend = c("Drake 2017","All"),lty=c("dashed","solid",lwd=2),bty='n')
+# legend("topleft",legend = c(paste0("xmax = ",format(coef(fit.nl.tdr)[[1]],digits = 2)),
+#                             "xmin = 0",
+#                             paste0("q = ",format(coef(fit.nl.tdr)[[3]],digits = 2))))
+legend("bottomright",legend = c("Drake et al., 2017a","All"),lty=c("dashed","solid",lwd=2),bty='n')
+legend("topleft",legend = c(levels(g1.swc.df.sub$Campaign)),
+       col=palette(),pch=c(16,16,16,16),ncol = 2,bty='n')
 
-plot(g1.norm ~ g1.pred,data=test.df,pch=16,xlim=c(0,1),ylim=c(0,1))
-abline(a=0,b=1)
-fit.result <- summary(lm(g1.norm ~ g1.pred,data=test.df))
-legend("topleft",legend = paste0("R2 = ",format(fit.result$r.squared,digits = 2)))
+# plot(g1.norm ~ g1.pred,data=test.df,pch=16,xlim=c(0,1),ylim=c(0,1))
+# abline(a=0,b=1)
+# fit.result <- summary(lm(g1.norm ~ g1.pred,data=test.df))
+# legend("topleft",legend = paste0("R2 = ",format(fit.result$r.squared,digits = 2)))
 dev.off()
 # g1.nl.pred <- predict(fit.nl.g1norm)
 # plot(g1.swc.df.sub$g1.norm ~ g1.nl.pred,pch=16)

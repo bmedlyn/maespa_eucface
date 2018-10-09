@@ -216,7 +216,7 @@ dat.l <- split(dat,dat$Species)
 
 eute.ros <- dat.l$eute
 plot(g1~TDR,data = eute.ros)
-
+saveRDS(eute.ros,'cache/ros.gs.rds')
 
 
 

@@ -5,7 +5,7 @@
 # read inputs and outputs
 # met <- list()
 
-source("R/load.R")
+# source("R/load.R")
 
 input <- list()
 flux <- list()
@@ -16,7 +16,7 @@ for (i in 1:6){
   watbal[[i]] <- readdayflux(sprintf("Rings/Ring%s/runfolder/watbalday.dat",i))
 
 }
-
+see <- input[[1]]
 # make a df of all in and out puts togethter
 # AllRing <- getAllRings(DayFlux = flux,InputValue = input)
 Data <- getAllData(DayFlux = flux,InputValue = input,watbal.d= watbal)
@@ -80,18 +80,20 @@ for (i in 1:6){
   # all the sum need to be divided by 2 as the fluxes are half hourly
 
   # unit convertor
-  mumol2g <- 0.5*60*60 * 10^-6 * 12/ (pi*12.5^2)
+  mumol2g <- 0.5 * 60 * 60 * 10^-6 * 12 / (pi*12.5^2)
+  h20Unit <- 0.5 *60 * 60 / (pi*12.5^2) * 10^-3 * 18 * 10^-3 * 10^-3 *  10^3
   hr.sum[[i]] <- data.table(hr.flux[[i]])[,list(Photo = sum((hrPs+ hrRf) , na.rm=TRUE) * mumol2g,
                                                 NPP = sum((hrPs ) , na.rm=TRUE) * mumol2g,
                                                 # PAR = 4 * mean(PAR, na.rm=TRUE) * 10-6 * 3600,
                                                 # hrle is on half-hourly base and is for each tree
-                                                trans = sum(hrLE,na.rm = TRUE) * mumol2g,
+                                                trans = sum(hrLE,na.rm = TRUE) * h20Unit,
                                                 VPD = mean(VPD, na.rm=TRUE),
                                                 # TAIR = mean(TAIR, na.rm=TRUE),
                                                 psiL = mean(PSIL, na.rm=TRUE)
   ),
   by = c("DOY","time")]
 }
+
 con.ls <- readLines("Rings/Ring1/runfolder/confile.dat")
 
 sd <- gsub("startdate = ","",

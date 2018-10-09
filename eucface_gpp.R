@@ -6,7 +6,8 @@ source("R/warpar.R")
 for (i in 1:6){
   #assign extwind: effciency of wind exponential decline with canopy depth 
   fn <- sprintf("Rings/Ring%s/runfolder/str.dat",i)
-  replaceNameList(namelist="aero",datfile=fn,
+  replaceNameList(namelist="aero",
+                  datfile=fn,
                   vals=list(extwind = 0.0)
   )
 }
@@ -14,8 +15,8 @@ for (i in 1:6){
 test <- 1.0
 # lai in the model = measured - base 
 # specify test parameters 
-base <- c(0.69,0.79,0.63,0.59,0.82,0.60) # brach and stem area to be substracted from LAI
-# base <- rep(0.8,6)
+# base <- c(0.69,0.79,0.63,0.59,0.82,0.60) # brach and stem area to be substracted from LAI
+base <- rep(0.8,6)
 # vj.ratio#
 vj.ratio.test = FALSE
 vj.ratio = 1.6
@@ -33,7 +34,7 @@ for ( i in 1:6){
 # chose gs model: 3: Leuning; 4 is optbb; 6 is tuzet#
 gs.model.num <- 4
 # vcmax-D function#
-vc.vpd <- TRUE
+vc.vpd <- FALSE
 # fire up the model####
 ########################################################TRUE
 # check all the option above before launch the model####
@@ -49,7 +50,8 @@ time.used <- eucGPP(startDate = as.Date("2013-01-01"),
                     vc.vpd = vc.vpd,
                     vj.ratio.test = vj.ratio.test,
                     vj.ratio = vj.ratio,
-                    swc.g1 = FALSE)
+                    swc.g1 = TRUE,
+                    ca.change = FALSE)
 
 # analysis###################
 source("R/get flux.r")
@@ -74,7 +76,7 @@ if(identical(gs.model.num,4)&identical(vj.ratio.test,FALSE)){
 }
 
 if(identical(gs.model.num,4)&identical(vj.ratio.test,TRUE)){
-  
+
   if(identical(vc.vpd,TRUE)){
     file.rename(from=fn.vec,
                 to=file.path("output","maestraVPDVJ",fn.vec))
@@ -96,8 +98,4 @@ if(identical(gs.model.num,6)){
 }
 
 
-if(identical(gs.model.num,4)){
-    file.rename(from=fn.vec,
-                to=file.path("output","leuning",fn.vec))
-}
 

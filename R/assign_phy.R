@@ -8,7 +8,7 @@ arrhenius <- function(k25 = 100, Ea = 60, Rgas = 0.008314, TTK = 293.15) {
 
 lrc.df <-lrc.df[lrc.df$Datatype ==  "compLRC",]
 lrc.df$gammas <- arrhenius(42.75,37830.0/1000, TTK =c(lrc.df$Tleaf + 273.15))
-lrc.df$apar <- lrc.df$PARi * (1- 0.093 -0.082)
+lrc.df$apar <- lrc.df$PARi * (1 - 0.093 - 0.082)
 lrc.df.low.par <- lrc.df[lrc.df$PARi < 100,]
 fit.a.lrc <- lm(Photo~apar,
                 data = lrc.df.low.par)
@@ -269,7 +269,7 @@ fit.g1.func <- function(spots){
   return(spots.g1)
 }
 # function that update phy.dat#####
-update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE){
+update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,photo.acli = FALSE){
   # data need to be on hiev
   # get vcmax jmax t response####
   if(!file.exists("cache/ecu_t_response.rds")){
@@ -279,11 +279,12 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE){
   t.response.df <- readRDS("cache/ecu_t_response.rds")
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
-    euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
-    fit.aci.func(euc.acis.df)
+    # euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
+    # fit.aci.func(euc.acis.df)
+    source('r/vj pheno.r')
   }
-  euc.sum.df <- readRDS("cache/ecu_aci_sum.rds")
-  euc.sum.df <- euc.sum.df[complete.cases(euc.sum.df),]
+  euc.sum.df <- readRDS("cache/euc.vj.rds")
+  euc.sum.df$Date <- format(euc.sum.df$date,'%d/%m/%y')
   # get Rd~T####
   # read rd T data
   rd.df <- read.csv("download/FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv")
@@ -316,11 +317,12 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE){
   for (i in 1:6){
     #assign g1
     if (swc.g1==TRUE){
-       g1.sub.df <- swc.50.df[swc.50.df$Ring == paste0('R',i),]
+      g1.sub.df <- swc.50.df[swc.50.df$Ring == paste0('R',i),]
     }else{
       g1.sub.df <- swc.50.df
     }
     fn <- sprintf("Rings/Ring%s/runfolder/phy.dat",i)
+    # g1.sub.df$g1 <- 4.3
     replaceNameList(namelist="bbmgs",datfile=fn,
                     vals=list(g0 = 0,
                               g1 = g1.sub.df$g1,
@@ -380,23 +382,38 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE){
     }else{
       vcmax.use = vj.ratio * euc.sum.df$Vcmax[euc.sum.df$Ring == i]
     }
+  
+
+    
+    if(photo.acli == TRUE){
+      vj.df <- euc.sum.df[,c('Date','v.a','j.a')]
+      names(vj.df) <- c('Date','v','j')
+    }else{
+      if(i %in% c(1,4,5)){
+        vj.df <- euc.sum.df[,c('Date','v.e','j.e')]
+      }else{
+        vj.df <- euc.sum.df[,c('Date','v.a','j.a')]
+      }
+      names(vj.df) <- c('Date','v','j')
+    }
+   
     
     replaceNameList(namelist="jmax",datfile=fn,
-                    vals=list(values=euc.sum.df$Jmax[euc.sum.df$Ring == i],
-                              dates =euc.sum.df$Date[euc.sum.df$Ring == i]))
+                    vals=list(values=vj.df$j,
+                              dates =vj.df$Date))
     replaceNameList(namelist="Vcmax",datfile=fn,
-                    vals=list(values=vcmax.use,
-                              dates =euc.sum.df$Date[euc.sum.df$Ring == i]))
+                    vals=list(values=vj.df$v,
+                              dates =vj.df$Date))
     
     replaceNameList(namelist="jmaxcon",datfile=fn,
                     vals=list(nolayers = 1,
                               noages = 1,
-                              nodates = length(euc.sum.df$Date[euc.sum.df$Ring == i])))
+                              nodates = length(vj.df$Date)))
     
     replaceNameList(namelist="Vcmaxcon",datfile=fn,
                     vals=list(nolayers = 1,
                               noages = 1,
-                              nodates = length(euc.sum.df$Date[euc.sum.df$Ring == i])))
+                              nodates = length(vj.df$Date)))
     
     
     replaceNameList(namelist="VCMAXPARS",datfile=fn,
