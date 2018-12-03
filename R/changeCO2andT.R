@@ -11,6 +11,17 @@ for (i in 1:6){
                   vals=list(CO2INC = 0,
                             TINC = 0))
 }
+for (i in 1:6){
+  #assign extwind: effciency of wind exponential decline with canopy depth 
+  fn <- sprintf("Rings/Ring%s/runfolder/str.dat",i)
+  replaceNameList(namelist="aero",
+                  datfile=fn,
+                  vals=list(extwind = 0.0))
+  
+  replaceNameList(namelist="lia",
+                  datfile=fn,
+                  vals=list(NALPHA = 1, ELP = 1.0))
+}
 # 
 # for (co2.increase in c(150,-150)){
 #   # co2.increase <- -150
@@ -47,7 +58,8 @@ for (i in 1:6){
                       vc.vpd = vc.vpd,
                       vj.ratio.test = vj.ratio.test,
                       vj.ratio = vj.ratio,
-                      swc.g1 = TRUE,ca.change = TRUE)
+                      swc.g1 = TRUE,
+                      ca.change = TRUE)
 # }
 # analysis###################
 source("R/get flux.r")

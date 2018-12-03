@@ -171,7 +171,7 @@ run_maespa_eucface <- function(ring,runfolder.path,
   # # Calculate individual tree leaf areas.
   # DATES <- format(sm[[ring]]$Date, "%d/%m/%y")
   # 
-  # # set s and e days
+  # # set s and e days 
   # if(is.null(startDate)){
   #   startDate <- DATES[1]
   # } else {
@@ -192,20 +192,26 @@ run_maespa_eucface <- function(ring,runfolder.path,
                           # CA.in=CA.in
   )
   
-  #get initial swc from hiev
-  swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",ring),
-                         startDate = startDate,
-                         endDate = endDate)
   
-  swc.df <- subset(swc.df,select = c("Date",
-                                     "DateTime",
-                                     "Theta5_1_Avg","Theta5_2_Avg",
-                                     "Theta30_1_Avg","Theta30_2_Avg",
-                                     "Theta75_1_Avg","Theta75_2_Avg"))
-  swc.df <- swc.df[order(swc.df$DateTime),]
-  swc.df$swc.0.30 <- (swc.df$Theta5_1_Avg + swc.df$Theta5_2_Avg + swc.df$Theta30_1_Avg +swc.df$Theta30_2_Avg)/4
+  #get initial swc from hiev -- this bit is not doing anything
   
-  swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
+  # swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",ring),
+  #                        startDate = startDate,
+  #                        endDate = endDate)
+  # 
+  # swc.df <- subset(swc.df,select = c("Date",
+  #                                    "DateTime",
+  #                                    "Theta5_1_Avg","Theta5_2_Avg",
+  #                                    "Theta30_1_Avg","Theta30_2_Avg",
+  #                                    "Theta75_1_Avg","Theta75_2_Avg"))
+  # swc.df <- swc.df[order(swc.df$DateTime),]
+  # swc.df$swc.0.30 <- (swc.df$Theta5_1_Avg + swc.df$Theta5_2_Avg + swc.df$Theta30_1_Avg +swc.df$Theta30_2_Avg)/4
+  # 
+  # swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
+  
+  swc.df <- readRDS('cache/swc.day.df.rds')
+  
+  # swc.neutron.ring.df <- readRDS('cache/swc.rds')
 
   file.copy('maespa exe/intelMaespa.exe',runfolder.path,overwrite = TRUE)
   file.copy('maespa exe/MAESPA64.exe',runfolder.path,overwrite = TRUE)
@@ -241,59 +247,59 @@ run_maespa_eucface <- function(ring,runfolder.path,
   # change simulation for TUzet model and add parameteres
   replacePAR("confile.dat", "modelgs","model", newval = model.num)
   
-  # initial swc from Hiev
-  replacePAR("watpars.dat", "initwater","initpars", newval=c(swc.df$swc.0.30[1]/100,swc.df$swc.30.75[1]/100))
-  # throughfall from Teresa's draft should be calculated from Tfall and rainfall measurements
-  replacePAR("watpars.dat", "throughfall","wattfall", newval = 0.96)
-  # Need to guess from throughfall and rainfall
-  replacePAR("watpars.dat", "maxstorage","wattfall", newval = 0.2)
-
-  # root propery based on Juan's data set
-  # look at warpar.R for details
-  replaceNameList("rootpars","watpars.dat", vals=list(rootrad = 0.0001,#m
-                                                      # rootdens = 500000,
-                                                      # rootmasstot = 1000,
-                                                      # nrootlayer = 9,
-                                                      # fracroot = c(0.1,0.001,0.199,0.2,0.1,0.1,0.1,0.1,0.1)
-                                                      # rootrad =0.0005,
-                                                      rootdens = 5e5, #g m^3
-                                                      rootmasstot = root.total[ring],
-                                                      nrootlayer = layers.num,
-                                                      fracroot = f.vec
-                                                      ))
-  # plant hydro conductance
-  replaceNameList("plantpars","watpars.dat", vals=list(MINLEAFWP = -3.2,#lowestvalue from WP Teresa
-                                                       MINROOTWP = -3,
-                                                       PLANTK = 2.68 #fit to spots; leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
-  ))
-
-
-
-
-  # key is porefraction which doesn't really change according to Cosby 1984
-  replaceNameList("laypars","watpars.dat", vals=list(nlayer=layers.num + 6,
-                                                     laythick=diff(depth.v)/100,
-                                                     porefrac = c(0.42,0.40),
-                                                     # porefrac = c(0.3,0.3),
-                                                     fracorganic = c(0.8,0.2,0.1,0.02)
-                                                     ))
-
-  # key is usestand = 0 which mean only consider target trees
-  replaceNameList("watcontrol","watpars.dat", vals=list(keepwet = 0,
-                                                        SIMTSOIL = 1,
-                                                        reassignrain = 0,
-                                                        retfunction = 1,
-                                                        equaluptake = 0,
-                                                        WSOILMETHOD = 1,
-                                                        usemeaset = 0,
-                                                        usemeassw = 0,
-                                                        USESTAND = 0
-                                                        ))
-  # par value from duursma 2008
-  replaceNameList("soilret","watpars.dat", vals=list(bpar=c(4.26,6.77),
-                                                     psie = c(-0.00036,-0.00132),
-                                                     ksat = c(79.8,25.2)
-                                                     ))
+  # # initial swc from Hiev
+  # replacePAR("watpars.dat", "initwater","initpars", newval=c(swc.df$swc.tdr.30[1]/100,swc.df$swc.tdr.75[1]/100))
+  # # throughfall from Teresa's draft should be calculated from Tfall and rainfall measurements
+  # replacePAR("watpars.dat", "throughfall","wattfall", newval = 0.96)
+  # # Need to guess from throughfall and rainfall
+  # replacePAR("watpars.dat", "maxstorage","wattfall", newval = 0.2)
+  # 
+  # # root propery based on Juan's data set
+  # # look at warpar.R for details
+  # replaceNameList("rootpars","watpars.dat", vals=list(rootrad = 0.0001,#m
+  #                                                     # rootdens = 500000,
+  #                                                     # rootmasstot = 1000,
+  #                                                     # nrootlayer = 9,
+  #                                                     # fracroot = c(0.1,0.001,0.199,0.2,0.1,0.1,0.1,0.1,0.1)
+  #                                                     # rootrad =0.0005,
+  #                                                     rootdens = 5e5, #g m^3
+  #                                                     rootmasstot = root.total[ring],
+  #                                                     nrootlayer = layers.num,
+  #                                                     fracroot = f.vec
+  #                                                     ))
+  # # plant hydro conductance
+  # replaceNameList("plantpars","watpars.dat", vals=list(MINLEAFWP = -3.2,#lowestvalue from WP Teresa
+  #                                                      MINROOTWP = -3,
+  #                                                      PLANTK = 2.68 #fit to spots; leaf-specific (total) plant hydraulic conductance (mmol m-2 s-1 MPa-1)
+  # ))
+  # 
+  # 
+  # 
+  # 
+  # # key is porefraction which doesn't really change according to Cosby 1984
+  # replaceNameList("laypars","watpars.dat", vals=list(nlayer = layers.num + 6,
+  #                                                    laythick = diff(depth.v)/100,
+  #                                                    porefrac = c(0.42,0.40),
+  #                                                    # porefrac = c(0.3,0.3),
+  #                                                    fracorganic = c(0.8,0.2,0.1,0.02)
+  #                                                    ))
+  # 
+  # # key is usestand = 0 which mean only consider target trees
+  # replaceNameList("watcontrol","watpars.dat", vals=list(keepwet = 0,
+  #                                                       SIMTSOIL = 1,
+  #                                                       reassignrain = 0,
+  #                                                       retfunction = 1,
+  #                                                       equaluptake = 0,
+  #                                                       WSOILMETHOD = 1,
+  #                                                       usemeaset = 0,
+  #                                                       usemeassw = 0,
+  #                                                       USESTAND = 0
+  #                                                       ))
+  # # par value from duursma 2008
+  # replaceNameList("soilret","watpars.dat", vals=list(bpar=c(4.26,6.77),
+  #                                                    psie = c(-0.00036,-0.00132),
+  #                                                    ksat = c(79.8,25.2)
+  #                                                    ))
 
 
   # Toss met data before which we don't have LAI anyway (makes files a bit smaller)
@@ -301,25 +307,41 @@ run_maespa_eucface <- function(ring,runfolder.path,
   # write.csv(met,"met_ListOfAllVaule.csv")
 
   
-  if(ca.change == FALSE){ 
-    if(ring %in% c(1,4,5)){
-    met <-  subset(met,select = -c(Ca.A))
-    names(met)[names(met) ==  'Ca.E'] <- 'CA'
+  # if(ca.change == FALSE){ 
+  #   if(ring %in% c(1,4,5)){
+  #   met <-  subset(met,select = -c(Ca.A))
+  #   names(met)[names(met) ==  'Ca.E'] <- 'CA'
+  # }else{
+  #   met <-  subset(met,select = -c(Ca.E))
+  #   names(met)[names(met) ==  'Ca.A'] <- 'CA'
+  # }
+  #   }
+  # 
+  # if(ca.change == TRUE){
+  #   if(ring %in% c(2,3,6)){
+  #     met <-  subset(met,select = -c(Ca.A))
+  #     names(met)[names(met) ==  'Ca.E'] <- 'CA'
+  #   }else{
+  #     met <-  subset(met,select = -c(Ca.E))
+  #     names(met)[names(met) ==  'Ca.A'] <- 'CA'
+  #   }
+  # }
+  
+  
+  if(ca.change == TRUE){
+      met <-  subset(met,select = -c(Ca.A))
+      names(met)[names(met) ==  'Ca.E'] <- 'CA'
+
   }else{
     met <-  subset(met,select = -c(Ca.E))
     names(met)[names(met) ==  'Ca.A'] <- 'CA'
-  }}
-
-  if(ca.change == TRUE){
-    if(ring %in% c(2,3,6)){
-      met <-  subset(met,select = -c(Ca.A))
-      names(met)[names(met) ==  'Ca.E'] <- 'CA'
-    }else{
-      met <-  subset(met,select = -c(Ca.E))
-      names(met)[names(met) ==  'Ca.A'] <- 'CA'
-    }
   }
-  
+  # # put in soil water content
+  # swc.ring.df <- swc.df[swc.df$Ring == paste0('R',ring),]
+  # swc.ring.df <- swc.ring.df[,c('Date','swc.tdr')]
+  # names(swc.ring.df) <- c('Date','SW')
+  # met.sw <- merge(met,swc.ring.df,by='Date',all.x=TRUE)
+ 
   metnodate <- subset(met, select = -Date)
   
   # metnodate <- met
@@ -346,6 +368,13 @@ run_maespa_eucface <- function(ring,runfolder.path,
   replacePAR("met.dat", "startdate", "metformat", format(as.Date(startDate), "%d/%m/%y"))
   
   replacePAR("met.dat", "enddate", "metformat", format(as.Date(endDate), "%d/%m/%y"))
+  
+  replaceNameList("ENVIRON","met.dat", vals=list(difsky = 0.0,
+                                                 ca = 390,
+                                                 SWMAX = 42,
+                                                 SWMIN = 0
+  ))
+
   
   # run maespa
   print(sprintf("Ring %s start",ring))
@@ -380,9 +409,7 @@ eucGPP <- function(hourly.data = FALSE,startDate= NULL,endDate = NULL,rings = 1:
                photo.acli = photo.acli,
                ...)
   
-  
-
-  for (ring in rings){
+    for (ring in rings){
     run_maespa_eucface(ring = ring,
                        runfolder.path = file.path(o,sprintf("Rings/Ring%s",ring),"runfolder/"),
                        hourly.data = hourly.data,

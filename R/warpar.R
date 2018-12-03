@@ -1,7 +1,7 @@
 # a <- 1
 # write(a)
 # write.table(a,file="see.dat")
-root.depth <- 200 #cm
+root.depth <- 400 #cm
 # value of 0.99 is used by remko;
 # 0.96 is from Jakson 1996
 beta <- 0.96

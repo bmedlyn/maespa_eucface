@@ -41,7 +41,8 @@ histo.sum <- summaryBy(m2.hr~PAR,data = histo.df,
 histo.sum$fraction <- histo.sum$m2.hr / sum(histo.sum$m2.hr)
 
 barplot(histo.sum$fraction,names.arg = histo.sum$PAR,
-        ylab='fraction of time and area')
+        ylab='Frequency',
+        xlab= expression(PAR~(mu*mol~m^-2~s^-1)))
 
 
 # 

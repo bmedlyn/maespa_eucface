@@ -2,14 +2,18 @@ rm(list=ls())
 cat("\014")
 # load and set the model####
 source("R/load.R")
-source("R/warpar.R")
+# source("R/warpar.R")
+
 for (i in 1:6){
   #assign extwind: effciency of wind exponential decline with canopy depth 
   fn <- sprintf("Rings/Ring%s/runfolder/str.dat",i)
   replaceNameList(namelist="aero",
                   datfile=fn,
-                  vals=list(extwind = 0.0)
-  )
+                  vals=list(extwind = 0.0))
+  
+  replaceNameList(namelist="lia",
+                  datfile=fn,
+                  vals=list(NALPHA = 1, ELP = 1.0))
 }
 #test - lai sensitivity test#
 test <- 1.0
@@ -34,7 +38,9 @@ for ( i in 1:6){
 # chose gs model: 3: Leuning; 4 is optbb; 6 is tuzet#
 gs.model.num <- 4
 # vcmax-D function#
-vc.vpd <- FALSE
+vc.vpd <- TRUE
+ca.e <- TRUE
+photo.acli <- TRUE
 # fire up the model####
 ########################################################TRUE
 # check all the option above before launch the model####
@@ -51,7 +57,8 @@ time.used <- eucGPP(startDate = as.Date("2013-01-01"),
                     vj.ratio.test = vj.ratio.test,
                     vj.ratio = vj.ratio,
                     swc.g1 = TRUE,
-                    ca.change = FALSE)
+                    ca.change = ca.e,
+                    photo.acli = photo.acli)
 
 # analysis###################
 source("R/get flux.r")
@@ -64,38 +71,53 @@ fn.vec <- c("maespa trans vs hp hrly.pdf",
             "mastra and sap.rds",
             "maespa trans vs hp.pdf")
 
-if(identical(gs.model.num,4)&identical(vj.ratio.test,FALSE)){
-
-  if(identical(vc.vpd,TRUE)){
+if(identical(photo.acli,TRUE)){
+  file.rename(from=fn.vec,
+              to=file.path("output","accli",fn.vec))
+}else{
+  if(identical(ca.e,TRUE)){
     file.rename(from=fn.vec,
-                to=file.path("output","maestraVPD",fn.vec))
+                to=file.path("output","elevated",fn.vec))
   }else{
     file.rename(from=fn.vec,
-                to=file.path("output","maestra",fn.vec))
+                to=file.path("output","ambient",fn.vec))
   }
-}
-
-if(identical(gs.model.num,4)&identical(vj.ratio.test,TRUE)){
-
-  if(identical(vc.vpd,TRUE)){
-    file.rename(from=fn.vec,
-                to=file.path("output","maestraVPDVJ",fn.vec))
-  }else{
-    file.rename(from=fn.vec,
-                to=file.path("output","maestraVJ",fn.vec))
-  }
+  
 }
 
 
-if(identical(gs.model.num,6)){
-  if(identical(vc.vpd,TRUE)){
-    file.rename(from=fn.vec,
-                to=file.path("output","maespaVPD",fn.vec))
-  }else{
-    file.rename(from=fn.vec,
-                to=file.path("output","maespa",fn.vec))
-    }
-}
-
-
+# if(identical(gs.model.num,4)&identical(vj.ratio.test,FALSE)){
+# 
+#   if(identical(vc.vpd,TRUE)){
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maestraVPD",fn.vec))
+#   }else{
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maestra",fn.vec))
+#   }
+# }
+# 
+# if(identical(gs.model.num,4)&identical(vj.ratio.test,TRUE)){
+# 
+#   if(identical(vc.vpd,TRUE)){
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maestraVPDVJ",fn.vec))
+#   }else{
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maestraVJ",fn.vec))
+#   }
+# }
+# 
+# 
+# if(identical(gs.model.num,6)){
+#   if(identical(vc.vpd,TRUE)){
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maespaVPD",fn.vec))
+#   }else{
+#     file.rename(from=fn.vec,
+#                 to=file.path("output","maespa",fn.vec))
+#     }
+# }
+# 
+# 
 

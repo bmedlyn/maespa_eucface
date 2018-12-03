@@ -1,10 +1,10 @@
-hr.swc.lai.df.1314<- readRDS('et var.rds')
+# hr.swc.lai.df.1314 <- readRDS('et var.rds')
 swc.day.ls <- list()
 for ( i in 1:6){
   
   swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",i),
-                         startDate = min(hr.swc.lai.df.1314$Date),
-                         endDate = max(hr.swc.lai.df.1314$Date))
+                         startDate = '2013-01-01',
+                         endDate = '2016-12-31')
   meanVWC <- function(dfr){
     vwccols <- grep("VWC_",names(dfr))
     dfr <- dfr[,vwccols]
@@ -26,6 +26,7 @@ for ( i in 1:6){
   
   swc.df$swc.30.75 <- (swc.df$Theta75_1_Avg + swc.df$Theta75_2_Avg)/2
   
+  # the theta probes are mislabled as tdr here 
   swc.day.ls[[i]] <- data.table(swc.df)[,list(Ring = paste0("R",i),
                                               swc.tdr.5 = mean(swc.0.5, na.rm=TRUE),
                                               swc.tdr.30 = mean(swc.5.30, na.rm=TRUE),
@@ -38,5 +39,6 @@ for ( i in 1:6){
 }
 
 swc.day.df <- do.call(rbind,swc.day.ls)
+swc.day.df <- swc.day.df[order(swc.day.df$Date),]
 
 saveRDS(swc.day.df,'cache/swc.day.df.rds')

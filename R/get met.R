@@ -123,6 +123,7 @@ met$RH <- met$RH / 100
 met <- subset(met,select = -c(Ring))
 names(met) <- c("Date","PRESS","WIND","PAR",
                    "TAIR","RH","PPT","Ca.A",'Ca.E')
+
 met$Date <- as.Date(met$Date)
 met$TAIR[met$TAIR > 50] <- NA
 met$TAIR <- zoo::na.locf(met$TAIR)

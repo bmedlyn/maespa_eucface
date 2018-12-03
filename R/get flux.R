@@ -9,17 +9,17 @@
 
 input <- list()
 flux <- list()
-watbal <- list()
+# watbal <- list()
 for (i in 1:6){
   input[[i]] <- ReadInput(i)
   flux[[i]] <- ReadDayFlux(i)
-  watbal[[i]] <- readdayflux(sprintf("Rings/Ring%s/runfolder/watbalday.dat",i))
+  # watbal[[i]] <- readdayflux(sprintf("Rings/Ring%s/runfolder/watbalday.dat",i))
 
 }
-see <- input[[1]]
+# see <- input[[1]]
 # make a df of all in and out puts togethter
 # AllRing <- getAllRings(DayFlux = flux,InputValue = input)
-Data <- getAllData(DayFlux = flux,InputValue = input,watbal.d= watbal)
+Data <- getAllData(DayFlux = flux,InputValue = input)
 # Data$VPD.t <- getVPD(Data$RH,Data$TAIR)
 #make the ring total to per m2 ground 
 Monthly <- Data
@@ -34,10 +34,12 @@ Monthly$date.full <- Data$Date
 
 # sap####
 data.sap <- subset(Monthly,select=c("date.full","Ring","GPP","Ra","mm",
-                                    "soil.e","VPD","PAR","LAI","TAIR",
+                                    # "soil.e",
+                                    "VPD","PAR","LAI","TAIR",
                                     "Rain","absPAR"))
 names(data.sap) <- c("Date","Ring","GPP","Ra","Trans",
-                     'soil.e',"VPD","PAR","LAI","TAIR",
+                     # 'soil.e',
+                     "VPD","PAR","LAI","TAIR",
                      "PPT","APAR")
 
 for (i in 1:6){

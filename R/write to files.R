@@ -35,3 +35,12 @@
 #   )
 #   
 # }
+
+# for (i in 1:6){
+#   
+#   fn <- sprintf("Rings/Ring%s/runfolder/confile.dat",i)
+#   
+#   write.table(c("&HISTO","BINSIZE =  200","/"),fn,
+#               row.names=FALSE, sep="\t", quote=FALSE,append =TRUE,
+#               col.names = FALSE)
+# }

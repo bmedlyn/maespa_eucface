@@ -321,7 +321,7 @@ GetAverage <- function (x) {
   return(y) 
 }
 
-getAllRings<-function(DayFlux,InputValue,watbal.d){
+getAllRings<-function(DayFlux,InputValue){
   ##Data process#####
   DailyAverage.flux <- list()
   DailyAverage.input <- list()
@@ -332,7 +332,7 @@ getAllRings<-function(DayFlux,InputValue,watbal.d){
                                         FUN = sum,na.rm = TRUE)
     names(DailyAverage.flux[[i]]) <- c("DOY","GPP","Ra","absPAR","le")
     
-    DailyAverage.flux[[i]]$soil.e <- watbal.d[[i]]$soilevap
+    # DailyAverage.flux[[i]]$soil.e <- watbal.d[[i]]$soilevap
     
     DailyAverage.input[[i]] <- GetAverage(InputValue[[i]])
     DailyAverage.input[[i]]$Ring <- i

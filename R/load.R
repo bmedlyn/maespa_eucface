@@ -30,13 +30,17 @@ if(!dir.exists("download"))dir.create("download")
 if(!dir.exists("output"))dir.create("output")
 if(!dir.exists("output/maespa"))dir.create("output/maespa")
 if(!dir.exists("output/leuning"))dir.create("output/leuning")
-if(!dir.exists("output/maespaVPD"))dir.create("output/maespaVPD")
-if(!dir.exists("output/maestra"))dir.create("output/maestra")
-if(!dir.exists("output/maestraVPD"))dir.create("output/maestraVPD")
-if(!dir.exists("output/maestraVPDVJ"))dir.create("output/maestraVPDVJ")
-if(!dir.exists("output/maestraVJ"))dir.create("output/maestraVJ")
+# if(!dir.exists("output/maespaVPD"))dir.create("output/maespaVPD")
+# if(!dir.exists("output/maestra"))dir.create("output/maestra")
+# if(!dir.exists("output/maestraVPD"))dir.create("output/maestraVPD")
+# if(!dir.exists("output/maestraVPDVJ"))dir.create("output/maestraVPDVJ")
+# if(!dir.exists("output/maestraVJ"))dir.create("output/maestraVJ")
+if(!dir.exists("output/accli"))dir.create("output/accli")
+if(!dir.exists("output/elevated"))dir.create("output/elevated")
+if(!dir.exists("output/ambient"))dir.create("output/ambient")
 if(!dir.exists("cache"))dir.create("cache")
 if(!dir.exists("Rings"))dir.create("Rings")
+
 
 # HIEv R package will download files to here:
 download.path <- file.path("download/")
@@ -62,9 +66,9 @@ facelai$Date <- as.Date(facelai$Date)
 sm <- makesmoothLAI(facelai, how="byring", timestep="1 day")
 
 # get data from Hiev
-downloadCSV("FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv",topath = "download/")
+downloadCSV(("FACE_P0064_RA_GASEXCHANGE-RdarkT_20160215-L1.csv"),topath = "download/")
 downloadHIEv(searchHIEv("EucFACE Fine root HIEv"),topath = "download/")
-
+downloadCSV(("FACE_P0045_RA_TREE_HEIGHT-DIAMETER_ RAW_082016_V1.csv"),topath = "download/euc data/")
 # get data from Gimeno 2016
 teresa.url <- paste0("http://research-data.westernsydney.edu.au/",
                      "redbox/verNum1.9/published/detail/",

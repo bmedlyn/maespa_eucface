@@ -140,8 +140,7 @@ get.t.response.func <- function(data.path){
   fef <- makecurves(data.path)
   
   dfef <- makedata(data.path,fef)
-  
-  
+
   #fit temperature response of Vcmax and Jmax and pull out parameters
   #peaked Arrhenius model
   
@@ -164,6 +163,20 @@ fit.aci.func <- function(euc.acis.df){
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo > -2,]
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
   euc.acis.df <- euc.acis.df[complete.cases(euc.acis.df$Number),]
+  
+  euc.acis.df <- subset(euc.acis.df,Age!='lower')
+  
+  euc.acis.df$Date <- as.character(euc.acis.df$Date)
+  euc.acis.df$Ring[is.na(euc.acis.df$Ring)] <- 3
+  euc.acis.df$Date[nchar(euc.acis.df$Date) > 11 & nchar(euc.acis.df$Date) < 13] <- 
+    substr(euc.acis.df$Date[nchar(euc.acis.df$Date) > 11 & nchar(euc.acis.df$Date) <13],2,12)
+  euc.acis.df$Date[nchar(euc.acis.df$Date) > 13] <- 
+    substr(euc.acis.df$Date[nchar(euc.acis.df$Date) > 13 ],5,15)
+  euc.acis.df$Date[euc.acis.df$Date == "10-Oct-16"] <- "Oct 10 2016"
+  euc.acis.df$Date <-  as.Date(euc.acis.df$Date,"%b %d %Y")
+  
+  euc.acis.df <- euc.acis.df[euc.acis.df$Date > as.Date('2013-1-1') & 
+                               euc.acis.df$Date < as.Date('2016-12-31'),]
   # # # plot to check data
   # plot(Photo~Ci,data = euc.acis.df[euc.acis.df$Number == 478,])
   # library(plantecophys)
@@ -186,15 +199,15 @@ fit.aci.func <- function(euc.acis.df){
   # date format clean and change
   euc.all.df$Tree <- as.factor(euc.all.df$Tree)
   euc.all.df$C.treat <- as.factor(euc.all.df$C.treat)
-  euc.all.df$Date <- as.character(euc.all.df$Date)
-  euc.all.df$Ring[is.na(euc.all.df$Ring)] <- 3
-  euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) < 13] <- 
-    substr(euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) <13],2,12)
-  
-  euc.all.df$Date[nchar(euc.all.df$Date) > 13] <- 
-    substr(euc.all.df$Date[nchar(euc.all.df$Date) > 13 ],5,15)
-  euc.all.df$Date[euc.all.df$Date == "10-Oct-16"] <- "Oct 10 2016"
-  euc.all.df$Date <-  as.Date(euc.all.df$Date,"%b %d %Y")
+  # euc.all.df$Date <- as.character(euc.all.df$Date)
+  # euc.all.df$Ring[is.na(euc.all.df$Ring)] <- 3
+  # euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) < 13] <- 
+  #   substr(euc.all.df$Date[nchar(euc.all.df$Date) > 11 & nchar(euc.all.df$Date) <13],2,12)
+  # 
+  # euc.all.df$Date[nchar(euc.all.df$Date) > 13] <- 
+  #   substr(euc.all.df$Date[nchar(euc.all.df$Date) > 13 ],5,15)
+  # euc.all.df$Date[euc.all.df$Date == "10-Oct-16"] <- "Oct 10 2016"
+  # euc.all.df$Date <-  as.Date(euc.all.df$Date,"%b %d %Y")
   
   euc.all.df <- euc.all.df[!duplicated(euc.all.df[,c("Number")]),]
   # get ring average
@@ -279,8 +292,8 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,p
   t.response.df <- readRDS("cache/ecu_t_response.rds")
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
-    # euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
-    # fit.aci.func(euc.acis.df)
+    euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
+    fit.aci.func(euc.acis.df)
     source('r/vj pheno.r')
   }
   euc.sum.df <- readRDS("cache/euc.vj.rds")
@@ -330,7 +343,10 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,p
                               nsides = 1,
                               wleaf = 0.01, 
                               VPDMIN = 0.05,
-                              gamma = 0)
+                              gamma = 0#,
+                              # SMD1 = -100, 
+                              # SMD2 = 1
+                              )
     )
     
     replaceNameList(namelist="bbgscon",datfile=fn,
@@ -385,15 +401,17 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,p
   
 
     
-    if(photo.acli == TRUE){
+    if(photo.acli == FALSE){
       vj.df <- euc.sum.df[,c('Date','v.a','j.a')]
       names(vj.df) <- c('Date','v','j')
     }else{
-      if(i %in% c(1,4,5)){
-        vj.df <- euc.sum.df[,c('Date','v.e','j.e')]
-      }else{
-        vj.df <- euc.sum.df[,c('Date','v.a','j.a')]
-      }
+      # if(i %in% c(1,4,5)){
+      #   vj.df <- euc.sum.df[,c('Date','v.e','j.e')]
+      # }else{
+      #   vj.df <- euc.sum.df[,c('Date','v.a','j.a')]
+      # }
+      # names(vj.df) <- c('Date','v','j')
+      vj.df <- euc.sum.df[,c('Date','v.e','j.e')]
       names(vj.df) <- c('Date','v','j')
     }
    

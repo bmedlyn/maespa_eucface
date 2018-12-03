@@ -8,8 +8,23 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   #calculatation of crown distribution based on allometric relationship######
   #read data
   # need to be on hiev
-  coord_H_D <- read.csv("dendrometers-n-coord2013_for_TEG.csv")
+  coord_H_D <- read.csv("data/dendrometers-n-coord2013_for_TEG.csv")
   coord_H_D <- na.omit(coord_H_D)
+  
+  baad.df <- read.csv("data/euc_baad.csv")
+  baad.df <- baad.df[  grep("Eucalyptus",baad.df$species),]
+  baad.df <- baad.df[!is.na(baad.df$d.bh),]
+  baad.df <- baad.df[!is.na(baad.df$a.lf),]
+  baad.df <- baad.df[baad.df$growingCondition == 'FW',]
+  baad.df <- baad.df[baad.df$d.bh < 1,]
+  # # # head(baad.df)
+  # plot(c(a.lf) ~ (d.bh),
+  #      data = baad.df)
+  # # abline(fit.lm)
+ 
+  fit.lm <- nls(a.lf ~ a * d.bh^b,
+                data = baad.df,start = list(a = 10,b=2))
+  la.dbh <- unname(coef(fit.lm))
   
   #DBH################################################################
   coord_H_D$DBH <- coord_H_D$DIAM01.2013
@@ -24,11 +39,18 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   #is given by the ratio of LA realstionship here.
   #hypothetical LA is given by the allometric relationship from Limousin et al. 2009 and Rambal et al. 2004
   #hypothetical LA is used for following purposes:
-  coord_H_D$LA <- 9.1*10^(-2)*coord_H_D$DBH^1.875
+  # coord_H_D$LA <- 9.1*10^(-2)*coord_H_D$DBH^1.875
+  coord_H_D$LA <- la.dbh[1]*(coord_H_D$DBH/100)^la.dbh[2]
   
-  #since the area of the half sphere = LA = 4*pi*radius^2
-  # r is consider as both x and y direction radius
-  coord_H_D$r <- (0.5*pi^-1*coord_H_D$LA)^0.5
+  # #since the area of the half sphere = LA = 4*pi*radius^2
+  # # r is consider as both x and y direction radius
+  # coord_H_D$r <- (2*coord_H_D$LA/4/pi)^0.5
+  r.d.df <- read.csv("download/euc data/FACE_P0045_RA_TREE_HEIGHT-DIAMETER_ RAW_082016_V1.csv")
+  r.d.df$r.mean <- (r.d.df$Radius_N.S + r.d.df$Radius_E.W)/2
+
+  fit.r.d <- lm(r.mean~DBH01082016,data = r.d.df)
+  
+  coord_H_D$r <- coef(fit.r.d)[[2]]*coord_H_D$DBH + coef(fit.r.d)[[1]]
   
   #the ratio of LA of each individual is given by ring
   #subset the data by ring
@@ -86,6 +108,7 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
     
   }
   
+  # see <- treela[[1]]
   #distribute LA to each tree
   for (j in 1:6){
     
@@ -96,6 +119,9 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
     }
     treela[[j]] <- round(treela[[j]]*1000)/1000
   }
+  
+  
+  
   
   totalDays <- length(sm[[1]]$Date)
   
@@ -167,14 +193,14 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
     return(ls)
   }
   
-  ls.15 <- surrd.tr.coor.func(15)
+  # ls.15 <- surrd.tr.coor.func(15)
   ls.17 <- surrd.tr.coor.func(17)
   ls.19 <- surrd.tr.coor.func(19)
   ls.21 <- surrd.tr.coor.func(21)
 
   
-    coor.N <- c(ls.15[[2]],ls.17[[2]],ls.19[[2]],ls.21[[2]]) + zero.position
-    coor.E <- c(ls.15[[1]],ls.17[[1]],ls.19[[1]],ls.21[[1]]) + zero.position  
+    coor.N <- c(ls.19[[2]],ls.21[[2]]) + zero.position
+    coor.E <- c(ls.19[[1]],ls.21[[1]]) + zero.position  
     
   add <- matrix(c(coor.E,coor.N),ncol = 2)
   
@@ -192,11 +218,16 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   #generate uniforn trees #####
   meanH <- mean(coord_H_D$Height072013)
   meanD <- mean(coord_H_D$DIAM01.2013)
-  meanR <- mean((9.1*10^(-2)*coord_H_D$DBH^1.875)^0.5)
+  meanR <- mean(coord_H_D$r)
   meanLA<-c()
-  for (i in 1: length(treela[[1]][1,])){
-    meanLA[i]<- min(treela[[1]][,i])
-    }
+ 
+  # for (i in 1: length(treela[[1]][1,])){
+  #   meanLA[i]<- min(treela[[1]][,i])
+  #   
+  # }
+
+  meanLA <- colMeans(do.call(rbind,treela))
+  
   meanla <- matrix(rep(meanLA,srrounding.tree),ncol=srrounding.tree)
   meanCH <- 0.5*meanH
   meanTH <- meanH - meanCH 
@@ -244,7 +275,8 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
     replaceNameList("indivlarea", tf, 
                     vals=list(nodates = totalDays,
                               dates = sm[[i]]$Date,
-                              values = rbind(treela[[i]],t(meanla))
+                              values = rbind(treela[[i]],
+                                             t(meanla))
                     ))
     #plot
     replaceNameList("plot", tf, 
