@@ -187,8 +187,11 @@ fit.aci.func <- function(euc.acis.df){
                      EdVC = 2e+05,
                      delsC = t.response.df["delS","Vcmax"]*1000, 
                      EaJ = t.response.df["Ea","Jmax"]*1000, 
-                     EdVJ = 2e+05, delsJ = t.response.df["delS","Jmax"]*1000)
-  
+                     EdVJ = 2e+05, 
+                     delsJ = t.response.df["delS","Jmax"]*1000,
+                     alpha = restult.lrc$alpha.j,
+                     theta = restult.lrc$theta)
+
   see <- Filter(function(x) length(x)>1, euc.fit)
   euc.coef <- as.data.frame(do.call(rbind,sapply(see,function(x) out.df <- data.frame(coef(x)))))
   names(euc.coef) <- c("Vcmax","Jmax","Rd")
@@ -228,6 +231,7 @@ fit.aci.func <- function(euc.acis.df){
   euc.sum.df <- euc.sum.df[order(euc.sum.df$Date),]
   euc.sum.df$Date <- format(as.Date(euc.sum.df$Date), format=c("%d/%m/%y")) 
   
+  # saveRDS(euc.sum.df,"cache/ecu_aci_sum_old.rds")
   saveRDS(euc.sum.df,"cache/ecu_aci_sum.rds")
 }
 # functions for Rd T response####
