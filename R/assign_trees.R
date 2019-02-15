@@ -82,16 +82,15 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   
   #TH
   for (i in 1:6){
-    
     coord_H_D_byRing[[i]]$TH <- 0.5*coord_H_D_byRing[[i]]$Height072013
   }
   
   #the LAI is given by the product of actual LAI of the ring and ratio
   for (i in 1:6){
     sm[[i]]$LA <- lai.test * (sm[[i]]$LAIsmooth - lai.base[i])*pi*radius^2
-    sm[[i]] <-  sm[[i]][sm[[i]]$Date > as.Date(startDate) &
-                          sm[[i]]$Date < as.Date(endDate),]
-    endDate = endDate
+    sm[[i]] <-  sm[[i]][sm[[i]]$Date >= as.Date(startDate) &
+                          sm[[i]]$Date <= as.Date(endDate),]
+    # endDate = endDate
     sm[[i]]$Date <- format(sm[[i]]$Date, "%d/%m/%y")
     
   }
@@ -166,12 +165,10 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   }
  
 #   #tree coord outside the ring
-
   surrd.tr.coor.func <- function(r.dist){
     angel.t <- 2 * asin(1.25/15)
     # sin(angel.t) * 15
     # cos(angel.t) * 15
-    
     num <- ceiling(pi/angel.t/2)
     
     cr.n.ls <- list()
@@ -194,11 +191,11 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   }
   
   # ls.15 <- surrd.tr.coor.func(15)
-  ls.17 <- surrd.tr.coor.func(17)
+  # ls.17 <- surrd.tr.coor.func(17)
   ls.19 <- surrd.tr.coor.func(19)
   ls.21 <- surrd.tr.coor.func(21)
+  # ls.23 <- surrd.tr.coor.func(23)
 
-  
     coor.N <- c(ls.19[[2]],ls.21[[2]]) + zero.position
     coor.E <- c(ls.19[[1]],ls.21[[1]]) + zero.position  
     
@@ -229,7 +226,7 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   meanLA <- colMeans(do.call(rbind,treela))
   
   meanla <- matrix(rep(meanLA,srrounding.tree),ncol=srrounding.tree)
-  meanCH <- 0.5*meanH
+  meanCH <- 0.5 * meanH
   meanTH <- meanH - meanCH 
   
   ##replace data in confi file####
@@ -292,7 +289,5 @@ update.tree.f <- function(lai.test,lai.base,radius = 12.5,
   }
   
   writeLines("trees updated")
-  
-  
 }
 

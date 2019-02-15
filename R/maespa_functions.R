@@ -213,8 +213,9 @@ run_maespa_eucface <- function(ring,runfolder.path,
   
   # swc.neutron.ring.df <- readRDS('cache/swc.rds')
 
-  file.copy('maespa exe/intelMaespa.exe',runfolder.path,overwrite = TRUE)
-  file.copy('maespa exe/MAESPA64.exe',runfolder.path,overwrite = TRUE)
+  # make sure to use the uptodate maespa
+  file.copy('maespa exe/i_histo_m.exe',runfolder.path,overwrite = TRUE)
+  file.copy('maespa exe/maespa_ori.exe',runfolder.path,overwrite = TRUE)
   setwd(runfolder.path)
   # Set simulation dates for given time
   replaceNameList("dates","confile.dat", vals=list(startdate=format(as.Date(startDate), "%d/%m/%y"),
@@ -243,9 +244,16 @@ run_maespa_eucface <- function(ring,runfolder.path,
   replaceNameList("diffang","confile.dat",vals=list(nolay = 6,
                                                     nzen = 20,
                                                     naz= 20))
+  
+  replaceNameList("HISTO","confile.dat",vals=list(BINSIZE =  25))
 
   # change simulation for TUzet model and add parameteres
-  replacePAR("confile.dat", "modelgs","model", newval = model.num)
+  # replacePAR("confile.dat", "modelgs","model", newval = model.num)
+  replaceNameList("modelgs","confile.dat",vals=list(model =  4,
+                                                    modelrd = 0,
+                                                    modeljm = 0,
+                                                    itermax = 200,
+                                                    modelss = 0))
   
   # # initial swc from Hiev
   # replacePAR("watpars.dat", "initwater","initpars", newval=c(swc.df$swc.tdr.30[1]/100,swc.df$swc.tdr.75[1]/100))
@@ -374,14 +382,22 @@ run_maespa_eucface <- function(ring,runfolder.path,
                                                  SWMAX = 42,
                                                  SWMIN = 0
   ))
-
+  # set the cords
+  replaceNameList("latlong","met.dat", vals=list(lat = c(33,35,49),
+                                                  long = c(150,45,10),
+                                                  tzlong = 150,
+                                                  lonhem = 'E',
+                                                  lathem = 'S'
+  ))
+  
+  print('met updated')
   
   # run maespa
   print(sprintf("Ring %s start",ring))
   if(identical(TRUE,vc.vpd)){
-    shell("intelMaespa.exe")
+    shell("i_histo_m.exe")
   }else{
-    shell("maespa64.exe")
+    shell("maespa_ori.exe")
   }
   
   print(sprintf("Ring %s finished",ring))
