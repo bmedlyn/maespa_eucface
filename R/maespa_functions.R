@@ -249,11 +249,11 @@ run_maespa_eucface <- function(ring,runfolder.path,
 
   # change simulation for TUzet model and add parameteres
   # replacePAR("confile.dat", "modelgs","model", newval = model.num)
-  replaceNameList("modelgs","confile.dat",vals=list(model =  4,
-                                                    modelrd = 0,
-                                                    modeljm = 0,
-                                                    itermax = 200,
-                                                    modelss = 0))
+  replaceNameList("model","confile.dat",vals=list(modelgs = 4,
+                                                  modelrd = 0,
+                                                  modeljm = 0,
+                                                  itermax = 200,
+                                                  modelss = 0))
   
   # # initial swc from Hiev
   # replacePAR("watpars.dat", "initwater","initpars", newval=c(swc.df$swc.tdr.30[1]/100,swc.df$swc.tdr.75[1]/100))

@@ -15,7 +15,7 @@ for (ring.num in 1:6){
   for (i in seq_along(index.vec)){
     tmp.df <- read.table(fn,header = FALSE, 
                          skip= c(2 + index.vec[i]),
-                         nrow = c(12))
+                         nrow = c(75))
     
     names(tmp.df) <- c('PAR','m2.hr')
     
@@ -32,17 +32,18 @@ for (ring.num in 1:6){
 }
 # the out put hist data
 histo.df <- do.call(rbind,out.ls)
-
+names(histo.df) <- c('PAR','m2.hr','aj','ac','ring','tree','fraction')
 library(doBy)
-histo.sum <- summaryBy(m2.hr~PAR,data = histo.df,
+histo.sum <- summaryBy(m2.hr + aj + ac ~ PAR,data = histo.df,
                        FUN=sum,keep.names = TRUE)
 
+saveRDS(histo.sum,'histo.rds')
 
-histo.sum$fraction <- histo.sum$m2.hr / sum(histo.sum$m2.hr)
+# histo.sum$fraction <- histo.sum$m2.hr / sum(histo.sum$m2.hr)
 
-barplot(histo.sum$fraction,names.arg = histo.sum$PAR,
-        ylab='Frequency',
-        xlab= expression(PAR~(mu*mol~m^-2~s^-1)))
+# barplot(histo.sum$ac,names.arg = histo.sum$PAR,
+#         ylab='Frequency',
+#         xlab= expression(PAR~(mu*mol~m^-2~s^-1)))
 
 
 # 

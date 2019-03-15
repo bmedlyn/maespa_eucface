@@ -3,8 +3,8 @@ swc.day.ls <- list()
 for ( i in 1:6){
   
   swc.df <- downloadTOA5(sprintf("FACE_R%s_B1_SoilVars",i),
-                         startDate = '2013-01-01',
-                         endDate = '2016-12-31')
+                         startDate = '2012-04-01',
+                         endDate = '2018-12-31')
   meanVWC <- function(dfr){
     vwccols <- grep("VWC_",names(dfr))
     dfr <- dfr[,vwccols]

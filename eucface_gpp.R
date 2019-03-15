@@ -21,9 +21,9 @@ test <- 1.0
 # specify test parameters 
 # base <- c(0.69,0.79,0.63,0.59,0.82,0.60) # brach and stem area to be substracted from LAI
 base <- rep(0.8,6)
-# vj.ratio#
-vj.ratio.test = FALSE
-vj.ratio = 1.6
+# # vj.ratio#
+# vj.ratio.test = FALSE
+# vj.ratio = 1.6
 # change co2 and t test ##
 co2.increase <-0 #elevated co2 test; ppm
 temp.increase <- 0 # temperature increase test; celsius
@@ -36,11 +36,10 @@ for ( i in 1:6){
 }
 
 # chose gs model: 3: Leuning; 4 is optbb; 6 is tuzet#
-gs.model.num <- 4
-# vcmax-D function#
-vc.vpd <- TRUE
+# gs.model.num <- 4
+# inputs for running scenarios
 ca.e <- TRUE
-photo.acli <- TRUE
+photo.acli <- FALSE
 # fire up the model####
 ########################################################TRUE
 # check all the option above before launch the model####
@@ -51,27 +50,30 @@ time.used <- eucGPP(startDate = as.Date("2013-01-01"),
                     lai.test = test,
                     lai.base = base,#note that this number is not used for now and s
                     rings = 1:6,
-                    model.sel = gs.model.num,
+                    model.sel = 4,
                     hourly.data = TRUE,
-                    vc.vpd = vc.vpd,
-                    vj.ratio.test = vj.ratio.test,
-                    vj.ratio = vj.ratio,
+                    vc.vpd = TRUE,
+                    vj.ratio.test = FALSE,
+                    vj.ratio = 0,
                     swc.g1 = TRUE,
                     ca.change = ca.e,
                     photo.acli = photo.acli)
 
+
+# stop('end here')
 # analysis###################
 source("R/get flux.r")
-
+source("R/get histo.r")
 # move file to output folders####
-fn.vec <- c("maespa trans vs hp hrly.pdf",
-           "mastra and sap hr.rds",
-           "mastra and sap 05hr.rds",
-           "all.hr.rds",
+fn.vec <- c(#"maespa trans vs hp hrly.pdf",
+            # "mastra and sap hr.rds",
+            #"mastra and sap 05hr.rds",
+            #"all.hr.rds",
             "mastra and sap.rds",
-            "maespa trans vs hp.pdf")
+            # "maespa trans vs hp.pdf",
+            'histo.rds')
 
-if(identical(photo.acli,TRUE)){
+if(identical(photo.acli,TRUE) & identical(ca.e,TRUE)){
   file.rename(from=fn.vec,
               to=file.path("output","accli",fn.vec))
 }else{
@@ -82,42 +84,5 @@ if(identical(photo.acli,TRUE)){
     file.rename(from=fn.vec,
                 to=file.path("output","ambient",fn.vec))
   }
-  
 }
-
-
-# if(identical(gs.model.num,4)&identical(vj.ratio.test,FALSE)){
-# 
-#   if(identical(vc.vpd,TRUE)){
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maestraVPD",fn.vec))
-#   }else{
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maestra",fn.vec))
-#   }
-# }
-# 
-# if(identical(gs.model.num,4)&identical(vj.ratio.test,TRUE)){
-# 
-#   if(identical(vc.vpd,TRUE)){
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maestraVPDVJ",fn.vec))
-#   }else{
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maestraVJ",fn.vec))
-#   }
-# }
-# 
-# 
-# if(identical(gs.model.num,6)){
-#   if(identical(vc.vpd,TRUE)){
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maespaVPD",fn.vec))
-#   }else{
-#     file.rename(from=fn.vec,
-#                 to=file.path("output","maespa",fn.vec))
-#     }
-# }
-# 
-# 
 

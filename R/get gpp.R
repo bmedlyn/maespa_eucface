@@ -22,7 +22,7 @@ get.annual.func <- function(maespa.df){
 }
 maespa.df <- readRDS("output/ambient/mastra and sap.rds")
 amb.df <- get.annual.func(maespa.df)
-
+mean(maespa.df.e$GPP / maespa.df$GPP,na.rm=TRUE)
 maespa.df.e <- readRDS("output/elevated/mastra and sap.rds")
 ele.df <- get.annual.func(maespa.df.e)
 
@@ -34,32 +34,33 @@ a.e.df$gpp.e <- ele.df$GPP.sum.mean
 a.e.df$gpp.accli <- accli.df$GPP.sum.mean
 a.e.df$c.rate <- a.e.df$gpp.e / a.e.df$GPP.sum.mean
 mean(a.e.df$c.rate)
+mean(a.e.df$gpp.e/a.e.df$GPP.sum.mean)
 
 a.e.df$accli.rate <- a.e.df$gpp.e / a.e.df$gpp.accli
-
+mean(a.e.df$accli.rate)
 names(a.e.df)[names(a.e.df)=="GPP.sum.mean"] <- 'gpp.a'
 write.csv(a.e.df,'euc_gpp_2013_2016.csv',row.names = FALSE)
 # 
 
+ae.sum.df.yr <- summaryBy(.~Ring,data = a.e.df,FUN=mean,keep.names = T)
 
-
-mean(a.e.df$accli.rate[a.e.df$Ring %in% paste0('R',c(1,4,5))])
-mean(a.e.df$GPP.sum.mean)
-mean(a.e.df$gpp.e)
-mean(a.e.df$gpp.a)
-range(a.e.df$gpp.a)
-range(a.e.df$gpp.e)
-
-mean(a.e.df$gpp.e[a.e.df$Ring %in% paste0('R',c(1,4,5))])/
-mean(a.e.df$gpp.a[a.e.df$Ring %in% paste0('R',c(2,3,6))])
-
-gpp.yr.df <- summaryBy(.~year, data = a.e.df,
-                       FUN=c(mean,sd),keep.names = T)
-
-gpp.yr.df$sd.per <- gpp.yr.df$gpp.a.sd / gpp.yr.df$gpp.a.mean
-mean(gpp.yr.df$sd.per)
-gpp.ring.df <- summaryBy(.~Ring, data = a.e.df,
-                       FUN=c(mean,sd),keep.names = T)
+# mean(a.e.df$accli.rate[a.e.df$Ring %in% paste0('R',c(1,4,5))])
+# mean(a.e.df$GPP.sum.mean)
+# mean(a.e.df$gpp.e)
+# mean(a.e.df$gpp.a)
+# range(a.e.df$gpp.a)
+# range(a.e.df$gpp.e)
+# 
+# mean(a.e.df$gpp.e[a.e.df$Ring %in% paste0('R',c(1,4,5))])/
+# mean(a.e.df$gpp.a[a.e.df$Ring %in% paste0('R',c(2,3,6))])
+# 
+# gpp.yr.df <- summaryBy(.~year, data = a.e.df,
+#                        FUN=c(mean,sd),keep.names = T)
+# 
+# gpp.yr.df$sd.per <- gpp.yr.df$gpp.a.sd / gpp.yr.df$gpp.a.mean
+# mean(gpp.yr.df$sd.per)
+# gpp.ring.df <- summaryBy(.~Ring, data = a.e.df,
+#                        FUN=c(mean,sd),keep.names = T)
 
 # 
 # maespa.df <- readRDS("output/ambient/mastra and sap.rds")

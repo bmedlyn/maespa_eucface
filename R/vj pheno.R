@@ -189,6 +189,7 @@ euc.4y.df <- data.frame(date = seq.Date(as.Date('2013-01-01'),
 euc.4y.df$ndays <- yday(euc.4y.df$date) - 91
 
 euc.4y.df$ndays[euc.4y.df$ndays < 0] <- euc.4y.df$ndays[euc.4y.df$ndays < 0] + 365
+
 euc.4y.ls <- split(euc.4y.df,year(euc.4y.df$date))
 
 euc.pred.ls <- list()
@@ -215,7 +216,11 @@ for (i in 1:length(euc.4y.ls)){
 # quantile(euc.vc.ls[[2]]$Vcmax,probs = 0.2)
 
 euc.pred.df <- do.call(rbind,euc.pred.ls)
-temp.df <- data.frame(date = unique(floor_date(euc.pred.df$date, "week")))
+# temp.df <- data.frame(date = ceiling(floor_date(euc.pred.df$date, "week")))
+
+temp.df <- data.frame(date = seq.Date(as.Date('2013-01-01'),
+                                        as.Date('2016-12-31'),
+                                        by='week'))
 
 out.df <- merge(temp.df,euc.pred.df,by='date')
 saveRDS(out.df,'cache/euc.vj.rds')

@@ -164,10 +164,10 @@ fit.aci.func <- function(euc.acis.df){
   euc.acis.df <- euc.acis.df[euc.acis.df$Cond > 0 ,]
   euc.acis.df <- euc.acis.df[complete.cases(euc.acis.df$Number),]
   
-  euc.acis.df <- subset(euc.acis.df,Age!='lower')
+  # euc.acis.df <- subset(euc.acis.df,Age!='lower')
   
   euc.acis.df$Date <- as.character(euc.acis.df$Date)
-  euc.acis.df$Ring[is.na(euc.acis.df$Ring)] <- 3
+  # euc.acis.df$Ring[is.na(euc.acis.df$Ring)] <- 3
   euc.acis.df$Date[nchar(euc.acis.df$Date) > 11 & nchar(euc.acis.df$Date) < 13] <- 
     substr(euc.acis.df$Date[nchar(euc.acis.df$Date) > 11 & nchar(euc.acis.df$Date) <13],2,12)
   euc.acis.df$Date[nchar(euc.acis.df$Date) > 13] <- 
@@ -296,7 +296,28 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,p
   t.response.df <- readRDS("cache/ecu_t_response.rds")
   # fit eucface aci to get vcmax and jmax####
   if(!file.exists("cache/ecu_aci_sum.rds")){
-    euc.acis.df <- read.csv("data/Aci.EucFACE.csv")
+    
+    new.aci.df <- read.csv("data/Aci.EucFACE.csv")
+    new.aci.df$Date <- as.character(new.aci.df$Date)
+    new.aci.df <- new.aci.df[new.aci.df$Age != 'lower',]
+    new.aci.df$Age <- droplevels(new.aci.df$Age)
+    
+    # old.aci.df <- read.csv("data/P0020_EucFACE-Aci_MASTER.csv")
+    # old.aci.df.missing <- old.aci.df[old.aci.df$Campaign %in% c('May-13','Sep-13'),]
+    # old.aci.df.missing$Campaign <- as.character(old.aci.df.missing$Campaign)
+    # old.aci.df.missing$Campaign[old.aci.df.missing$Campaign == 'May-13'] <- 'May_2013'
+    # old.aci.df.missing$Campaign[old.aci.df.missing$Campaign == 'Sep-13'] <- 'Sep_2013'
+    # old.aci.df.missing$Date <- NA
+    # old.aci.df.missing$Date[old.aci.df.missing$Campaign == 'May-13'] <- 'May 15 2013'
+    # old.aci.df.missing$Date[old.aci.df.missing$Campaign == 'Sep-13'] <- 'Sep 15 2013'
+    # old.aci.df.missing$Number <- old.aci.df.missing$Curve_Number *55
+    # old.aci.df.missing$Age <- old.aci.df.missing$Ageclass
+    # euc.acis.df <- rbind(new.aci.df[,c('Number',"Campaign",'Ring','Age',"C.treat","Date","Photo","Cond","Ci","Trmmol","VpdL",
+    #                                    "Tair","Tleaf","TBlk","CO2R","CO2S","H2OR","H2OS","RH_R","RH_S",'PARi')],
+    #                      old.aci.df.missing[,c('Number',"Campaign",'Ring','Age',"C.treat","Date","Photo","Cond","Ci","Trmmol","VpdL",
+    #                                    "Tair","Tleaf","TBlk","CO2R","CO2S","H2OR","H2OS","RH_R","RH_S",'PARi')])
+    
+    euc.acis.df <- new.aci.df
     fit.aci.func(euc.acis.df)
     source('r/vj pheno.r')
   }
@@ -333,11 +354,11 @@ update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,p
   #update eachRing####
   for (i in 1:6){
     #assign g1
-    if (swc.g1==TRUE){
-      g1.sub.df <- swc.50.df[swc.50.df$Ring == paste0('R',i),]
-    }else{
+    # if (swc.g1==TRUE){
+    #   g1.sub.df <- swc.50.df[swc.50.df$Ring == paste0('R',i),]
+    # }else{
       g1.sub.df <- swc.50.df
-    }
+    # }
     fn <- sprintf("Rings/Ring%s/runfolder/phy.dat",i)
     # g1.sub.df$g1 <- 4.3
     replaceNameList(namelist="bbmgs",datfile=fn,
