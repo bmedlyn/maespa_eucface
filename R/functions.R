@@ -1,3 +1,36 @@
+####################################
+# GENERAL FUNCTIONS USED IN SCRIPT
+#
+# to.pdf          Sends output to a specified PDF
+#
+# Functions from MAESPA to calculate satur and VPD
+# satur           Saturated VP in kPa as a function of air temperature in degC
+# getVPD          Get VPD from RH and Tair - same as RHtoVPD in MAESPA code
+#
+# FUNCTIONS TO CALCULATE AND PLOT SMOOTH LAI
+# alpha           Makes a vector of colours? 
+# makesmoothLAI   Makes smooth LAI from LAI data - from Remko
+# fitgam          Fits a GAM for smoothplot - from Remko
+# smoothplot      Plot a generalized additive model - from Remko
+# addpoly         Add a polynomial to smoothplot - from Remko
+#
+# FUNCTIONS TO READ IN OUTPUT FILES FOR ANALYSIS
+# ReadInput       Read the met input data - uses readmet from Maeswrap package
+# ReadDayFlux     Read the dayflux file - uses readdayflux from Maeswrap
+# ReadHourFlux    Read the hrflux file - uses readhrflux from Maeswrap
+# GetAverage      Calculates daily met data from hourly data
+# getAllRings     Make list of input and output data for all rings
+# getAllData      Reads in all input and output data for analysis
+#
+# MORE FUNCTIONS
+# get.hr.Rings    Does not look like this function is used
+# summary.SE      calculates SE - not sure where used
+# get_soilwater   Reads in topsoil water data - code from eucface_environ project
+#
+########################################
+
+
+#Sends output to a specified PDF
 to.pdf <- function(expr, filename, ..., verbose=TRUE) {
   if(!file.exists(dirname(filename)))
     dir.create(dirname(filename), recursive=TRUE)
@@ -8,7 +41,21 @@ to.pdf <- function(expr, filename, ..., verbose=TRUE) {
   eval.parent(substitute(expr))
 }
 
+# Functions from MAESPA to calculate satur and VPD
+# Saturated VP in kPa as a function of air temperature in degC
+# NB replaces saturate.vp.func in Jim's code
+satur <- function(tac) 0.61078*exp(17.269*tac/(237.3+tac))
 
+# Get VPD from RH and Tair - same as RHtoVPD in MAESPA code
+# Returns VPD in kPa. RH as fraction, Tai in degC
+# Jim used alternative function but here use MAESPA for consistency
+getVPD <- function(RH,TAIR){
+#  VPD <- (1-RH)*0.61375*exp(17.502*TAIR/(240.97+TAIR))
+  VPD <- (1-RH)*satur(TAR)
+  return(VPD)
+}
+
+# Makes a vector of colours? 
 alpha <- function (colour, alpha = NA) {
   col <- col2rgb(colour, TRUE)/255
   if (length(colour) != length(alpha)) {
@@ -28,8 +75,9 @@ alpha <- function (colour, alpha = NA) {
   new_col
 }
 
-
-makesmoothLAI <- function(dat, timestep="3 days", kgam=15, how=c("byring","mean")){
+# makes smooth LAI from LAI data - from Remko
+makesmoothLAI <- function(dat, timestep="3 days", kgam=15, 
+                          how=c("byring","mean")){
   
   how <- match.arg(how)
   
@@ -72,7 +120,7 @@ makesmoothLAI <- function(dat, timestep="3 days", kgam=15, how=c("byring","mean"
   return(smoothlai)
 }
 
-#' Function for smoothplot. Probably not use otherwise.
+# Fits a GAM for smoothplot. Probably not use otherwise.
 fitgam <- function(X,Y,dfr, k=-1, R=NULL){
   dfr$Y <- dfr[,Y]
   dfr$X <- dfr[,X]
@@ -234,7 +282,7 @@ smoothplot <- function(x,y,g=NULL,data,
   return(invisible(fits))
 }
 
-
+# add a polynomial to smoothplot
 addpoly <- function(x,y1,y2,col=alpha("lightgrey",0.8),...){
   ii <- order(x)
   y1 <- y1[ii]
@@ -243,24 +291,11 @@ addpoly <- function(x,y1,y2,col=alpha("lightgrey",0.8),...){
   polygon(c(x,rev(x)), c(y1, rev(y2)), col=col, border=NA,...)
 }
 
-
-# Readmet <- function(ring){
-#   fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
-#   met <- read.table(fn,head=FALSE, skip=24)
-#   attach(met)
-#   names(met)<-c("CA","PPT","PAR","TAIR","RH")
-#   return(met)
-# }
-
+# Read the met input data - uses readmet from Maeswrap package
 ReadInput <- function(ring){
-  # fn <- sprintf("Rings/Ring%s/runfolder/met_ListOfAllVaule.csv",ring)
-  # InputValue <- read.csv(fn)
 
   con.path <- file.path(sprintf("Rings/Ring%s/runfolder",ring),"confile.dat")
   con.ls <- readLines(con.path)
-
-  # substr(con.ls[grep("startdate", con.ls)],
-  #        "startdate = ","")
 
  sd <- gsub("startdate = ","",
      con.ls[grep("startdate", con.ls)])
@@ -275,40 +310,27 @@ ReadInput <- function(ring){
  e.date <- as.Date(ed,"%d/%m/%y")
  
  fn <- sprintf("Rings/Ring%s/runfolder/met.dat",ring)
- 
- # met <- read.table(fn,head=FALSE, skip=24)
-
- # names(met)<-c("CA","PRESS","WIND",
- #               "PPT","PAR","TAIR","RH")
  met <- readmet(fn)
-
  met$Date <- rep(seq(s.date,e.date,by="1 day"),each=48)
  
 return(met)
 }
 
+# Read the dayflux file - uses readdayflux from Maeswrap
 ReadDayFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/Dayflx.dat",ring)
-  # DayFlux <- read.table(fn,head=FALSE, skip=22)
-  # # attach(DayFlux)
-  # names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
-  #                   "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
-  
   DayFlux <- readdayflux(fn)
-  
   return(DayFlux)
 }
 
+# Read the hrflux file - uses readhrflux from Maeswrap
 ReadHourFlux <- function(ring){
   fn <- sprintf("Rings/Ring%s/runfolder/hrflux.dat",ring)
-  # DayFlux <- read.table(fn,head=FALSE, skip=35)
-  # # attach(DayFlux)
-  # names(DayFlux)<-c("DOY", "Tree", "Spec", "absPAR", "absNIR", "absTherm",
-  #                   "totPs", "totRf", "netPs", "totLE1", "totLE2","totH")
   HourFlux <-readhrflux(filename = fn)
   return(HourFlux)
 }
 
+# Calculates daily met data from hourly data
 GetAverage <- function (x) {
   attach(x)
 
@@ -321,11 +343,13 @@ GetAverage <- function (x) {
   return(y) 
 }
 
-getAllRings<-function(DayFlux,InputValue){
+# Make list of input and output data for all rings
+getAllRings <- function(DayFlux,InputValue){
   ##Data process#####
   DailyAverage.flux <- list()
   DailyAverage.input <- list()
   DailyAverage.Ring <- list()
+  
   for (i in 1:6){
     DailyAverage.flux[[i]] <- summaryBy(totPs + totRf + absPAR + totLE1 ~ DOY,
                                         data = DayFlux[[i]],
@@ -349,13 +373,8 @@ getAllRings<-function(DayFlux,InputValue){
   return(AllRings)
 }
 
-getVPD <- function(RH,TAIR){
-  
-  VPD <- (1-RH)*0.61375*exp(17.502*TAIR/(240.97+TAIR))
-  
-  return(VPD)
-}
 
+# Reads in all input and output data for analysis
 getAllData <- function(...){
   
   #the data in AllData is used for finally analysis
@@ -369,7 +388,7 @@ getAllData <- function(...){
   AllRings$Date <- as.Date(AllRings$Date)
   #get VPD
   AllRings$VPD <- getVPD(AllRings$RH,AllRings$TAIR)
-  #incorperate LAI
+  #incorporate LAI - assuming this is in memory
   for(i in 1:6){
     
     AllRings$LAI[AllRings$Ring == i] <-sm[[i]]$LAIsmooth 
@@ -384,7 +403,7 @@ getAllData <- function(...){
   AllRings$VPD <- na.locf(AllRings$VPD)
   
   
-  #get GOL and all
+  #get GOL - GPP per unit LAI
   AllRings$GOL <- AllRings$GPP/AllRings$LAI
   AllRings$Ring <-as.character(AllRings$Ring)
   AllRings$dL[is.na(AllRings$dL) == TRUE] <-0
@@ -392,8 +411,7 @@ getAllData <- function(...){
 }
 
 
-# 
-
+# Does not look like this function is used
 get.hr.Rings <- function(DayFlux){
   
   ##Data process#####
@@ -438,6 +456,7 @@ get.hr.Rings <- function(DayFlux){
   return(AllRings)
 }
 
+# calculates SE - not sure where used
 summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
                       conf.interval=.95, .drop=TRUE) {
   library(plyr)
@@ -475,6 +494,7 @@ summarySE <- function(data=NULL, measurevar, groupvars=NULL, na.rm=FALSE,
   return(datac)
 }
 
+# Read in the soil water data - code from eucface_environ project
 get_soilwater <- function(how=c("mean","byring")){
   
   how <- match.arg(how)
@@ -502,5 +522,5 @@ get_soilwater <- function(how=c("mean","byring")){
   return(soilwd)
 }
 
-# test <- readLines("confile.dat")
+
 
