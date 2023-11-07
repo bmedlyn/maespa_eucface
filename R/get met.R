@@ -1,4 +1,21 @@
 
+# Read the met data from the files that Jim/Gerry have been uploading to HIEv every month
+# Note that these files will need significant cleaning
+getmet_from_AUTO <- function () {
+  
+  met.files <- searchHIEv("FACE_AUTO_RA_MET_L2")
+  met.auto <- downloadHIEv(met.files,
+                           maxnfiles = 150,
+                           topath = "./cache")
+  metfiles <- dir(path="./cache", pattern="FACE_AUTO_RA_MET_L2",full.names=TRUE)
+  alldata <- lapply(metfiles, read.table,header=T)
+  met.auto.dat <- bind_rows(alldata)
+  met.auto.dat$DATE <- parse_date_time(met.auto.dat$DATE,"y m d")
+  saveRDS(met.auto.dat,file="./cache/met.auto.dat.rds")
+  return(met.auto.dat)
+  
+}
+
 # BM turning this file into a function
 # reads the met data from HIEv and puts into cache
 
