@@ -1,29 +1,57 @@
-# get theta and alpha from LRC######
-lrc.df <- read.csv("download/euc data/FACE_P0069_RA_GASEX-LRC_20141009-20170209_L1-V2.csv")
-# the arrhenius function
-arrhenius <- function(k25 = 100, Ea = 60, Rgas = 0.008314, TTK = 293.15) {
+##### FUNCTIONS TO FIT PHYSIOLOGY DATA
+##### AND CREATE FILE PHY.DAT
+
+# arrhenius         Arrhenius function
+# lightresponse     Fit light response curve
+# getr2             Calculate R2 of fit
+# makecurves        Fit A-Ci curves from T response
+# makedata          Collate T response curves of Jmax and Vcmax
+# fitpeaked         Fit T response of Vcmax
+# fitpeakedJ        Fit T response of Jmax
+# get.t.response.func Read and fit T response curves of A-Ci
+# fit.aci.func      Fit campaign A-Ci curves
+# fit.rd.t.func     Fit leaf Rd-T curve
+# fit.g1.func       Fit g1 parameter
+# update.phy.f      Fit all parameters and create phy.dat files
+
+# Arrhenius function
+arrhenius <- function(k25 = 100, Ea = 60, TTK) {
+  Rgas <- 0.008314
   fn <- k25 * exp((Ea*(TTK - 298.15))/(298.15*Rgas*TTK)) 
   return(fn)
 }
 
-lrc.df <-lrc.df[lrc.df$Datatype ==  "compLRC",]
-lrc.df$gammas <- arrhenius(42.75,37830.0/1000, TTK =c(lrc.df$Tleaf + 273.15))
-lrc.df$apar <- lrc.df$PARi * (1 - 0.093 - 0.082)
-lrc.df.low.par <- lrc.df[lrc.df$PARi < 100,]
-fit.a.lrc <- lm(Photo~apar,
-                data = lrc.df.low.par)
-alpha.a <- coef(summary(fit.a.lrc))[2]
-
-alpha.j <- mean(4*alpha.a*(lrc.df.low.par$Ci + 2*lrc.df.low.par$gammas)/
-  (lrc.df.low.par$Ci - lrc.df.low.par$gammas))
+# get theta and alpha from LRC######
+lightresponse <- function() {
+  # download data
+  lrc.df <- read.csv("download/euc data/FACE_P0069_RA_GASEX-LRC_20141009-20170209_L1-V2.csv")
+  lrc.df <-lrc.df[lrc.df$Datatype ==  "compLRC",]
   
-restult.lrc <- coef(nls(Photo~
+  # Gamma star
+  lrc.df$gammas <- arrhenius(k25 = 42.75, Ea = 37830.0/1000, 
+                             TTK =c(lrc.df$Tleaf + 273.15))
+  # assume values for reflectance and transmittance
+  lrc.df$apar <- lrc.df$PARi * (1 - 0.093 - 0.082)
+  
+  # fit alphaA to the low-PAR data: it is the slope of A vs PAR
+  lrc.df.low.par <- lrc.df[lrc.df$PARi < 100,]
+  fit.a.lrc <- lm(Photo~apar,
+                data = lrc.df.low.par)
+  alpha.a <- coef(summary(fit.a.lrc))[2]
+
+  # calculate alphaJ from alphaA
+  alpha.j <- mean(4*alpha.a*(lrc.df.low.par$Ci + 2*lrc.df.low.par$gammas)/
+    (lrc.df.low.par$Ci - lrc.df.low.par$gammas))
+  
+  # estimate Amax and theta - fitting non-rectangular hyperbola
+  result.lrc <- coef(nls(Photo~
                           alpha.a * apar+ Pm - ((alpha.a * apar+ Pm)^2-4*alpha.a * apar*Pm*theta)^0.5/2/theta,
                         data=lrc.df,start = list(Pm = 30, theta = 0.5)))
 
-restult.lrc$alpha.j <- alpha.j
-
-restult.lrc <- as.data.frame(restult.lrc)
+  result.lrc$alpha.j <- alpha.j
+  result.lrc <- as.data.frame(restult.lrc)
+  return(result.lrc)
+}
 
 # functions for T response from dushan with modification####
 #functions to fit ACi curves and return fitted parameters
@@ -32,6 +60,7 @@ getr2 <- function(x){
   lmfit <- lm(Ameas ~ Amodel, data=x$df)
   summary(lmfit)$r.squared
 }
+
 #functions to fit ACi curves.
 makecurves <- function(fname) {
   
@@ -51,6 +80,7 @@ makecurves <- function(fname) {
   return(fits1)
 }
 
+# make a data frame with all info from A-Ci fits
 makedata<- function(fname, fit) {
   
   ret <- coef(fit) 
@@ -74,7 +104,6 @@ makedata<- function(fname, fit) {
 
 # function to fit temperature response of Vcmax and get CI of parameters
 # peaked model (estimation of predictions and 95% CI dissabled to reduce impliment time)
-
 fitpeaked<-function(dat){
   
   fVc <- as.formula(Vcmax ~ k25 * exp((Ea*(TsK - 298.15))/(298.15*0.008314*TsK)) * 
@@ -134,29 +163,24 @@ fitpeakedJ<-function(dat){
   return(param)
 }
 
-#t.response func
+# Call functions to fit T responses of Jmax and Vcmax
 get.t.response.func <- function(data.path){
   
   fef <- makecurves(data.path)
-  
   dfef <- makedata(data.path,fef)
 
   #fit temperature response of Vcmax and Jmax and pull out parameters
   #peaked Arrhenius model
-  
   eucface_vcmax <- data.frame(do.call(rbind,list(fitpeaked(dfef))))
-  
   eucface_jmax <- data.frame(do.call(rbind,list(fitpeakedJ(dfef))))
-  
   see <- cbind(t(eucface_vcmax),t(eucface_jmax))
   colnames(see) <- c("Vcmax","Jmax")
   rownames(see)[1] <- "k25"
   rownames(see)[4] <- "k25.se"
-  
   return(see)
 }
 
-# fit jmax and ncmax with t correction####
+# fit Jmax and Vcmax with t correction####
 fit.aci.func <- function(euc.acis.df){
   # data clean
   euc.acis.df <- euc.acis.df[euc.acis.df$Photo < 50,]
@@ -234,6 +258,7 @@ fit.aci.func <- function(euc.acis.df){
   # saveRDS(euc.sum.df,"cache/ecu_aci_sum_old.rds")
   saveRDS(euc.sum.df,"cache/ecu_aci_sum.rds")
 }
+
 # functions for Rd T response####
 fit.rd.t.function <- function(rdark.csv){
   # rdark.csv <- read.csv(fn)
@@ -285,8 +310,14 @@ fit.g1.func <- function(spots){
   # spots.g1$Date <- format(spots.g1$Date,format="%d/%m/%y")
   return(spots.g1)
 }
+
 # function that update phy.dat#####
-update.phy.f <- function(lai.test,lai.base,vj.ratio.test,vj.ratio,swc.g1=FALSE,photo.acli = FALSE){
+update.phy.f <- function(lai.test,
+                         lai.base,
+                         vj.ratio.test,
+                         vj.ratio,
+                         swc.g1=FALSE,
+                         photo.acli = FALSE){
   # data need to be on hiev
   # get vcmax jmax t response####
   if(!file.exists("cache/ecu_t_response.rds")){
