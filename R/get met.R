@@ -1,6 +1,8 @@
 
 # Read the met data from the files that Jim/Gerry have been uploading to HIEv every month
 # Note that these files will need significant cleaning
+# Apart from anything else, there are a bunch of random dates missing
+# And no times! So difficult to match with other sets of obs
 getmet_from_AUTO <- function () {
   
   met.files <- searchHIEv("FACE_AUTO_RA_MET_L2")
@@ -18,7 +20,6 @@ getmet_from_AUTO <- function () {
 
 # BM turning this file into a function
 # reads the met data from HIEv and puts into cache
-
 getmet_from_HIEv <- function(startDate=as.POSIXct("2013-01-01",tz="UTC"),
                              endDate=as.POSIXct(today())) {
 
@@ -143,7 +144,7 @@ getmet_from_HIEv <- function(startDate=as.POSIXct("2013-01-01",tz="UTC"),
   met <- subset(met,select = -c(Ring))
   names(met) <- c("Date","PRESS","WIND","PAR",
                    "TAIR","RH","PPT","Ca.A",'Ca.E')
-  met$Date <- as.Date(met$Date)
+  # met$Date <- as.Date(met$Date) # keep time information
   met$TAIR[met$TAIR > 50] <- NA
   met$TAIR <- zoo::na.locf(met$TAIR)
   met$RH[met$RH > 1] <- 1
