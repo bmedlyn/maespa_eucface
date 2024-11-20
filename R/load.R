@@ -3,6 +3,7 @@
 # Newest version of Maeswrap: 
 # devtools::install_bitbucket("remkoduursma/maeswrap")
 
+# Libraries
 library(Maeswrap)
 library(mgcv)
 library(dplyr)
@@ -15,19 +16,27 @@ library(plyr)
 library(dplyr)
 library(reshape)
 library(plantecophys)
-library(XLConnect)
+# library(XLConnect) # will need if on Windows
 
 # set token for hiev
-if(file.exists("c:/hiev/token.txt")){
+if (file.exists("c:/hiev/token.txt")){
   setToken()
-}else{
-  stop(c("Token need to be in c:/hiev/token.txt"))
+} else if (file.exists("~/Dropbox/Repos/Eucface Repos/eucface_environ/token.txt")){
+  setToken(tokenfile="~/Dropbox/Repos/Eucface Repos/eucface_environ/token.txt")
+} else {
+  stop(c("Token needs to be in c:/hiev/token.txt"))
 }
 
 #prepare the folders
 o <- getwd()
 if(!dir.exists("download"))dir.create("download")
 if(!dir.exists("output"))dir.create("output")
+if(!dir.exists("cache"))dir.create("cache")
+if(!dir.exists("Rings"))dir.create("Rings")
+if(!dir.exists("output/elevated"))dir.create("output/elevated")
+if(!dir.exists("output/ambient"))dir.create("output/ambient")
+
+# These are directories that Jim used for various scenarios
 # if(!dir.exists("output/maespa"))dir.create("output/maespa")
 # if(!dir.exists("output/leuning"))dir.create("output/leuning")
 # if(!dir.exists("output/maespaVPD"))dir.create("output/maespaVPD")
@@ -35,18 +44,13 @@ if(!dir.exists("output"))dir.create("output")
 # if(!dir.exists("output/maestraVPD"))dir.create("output/maestraVPD")
 # if(!dir.exists("output/maestraVPDVJ"))dir.create("output/maestraVPDVJ")
 # if(!dir.exists("output/maestraVJ"))dir.create("output/maestraVJ")
-if(!dir.exists("output/accli"))dir.create("output/accli")
-if(!dir.exists("output/elevated"))dir.create("output/elevated")
-if(!dir.exists("output/ambient"))dir.create("output/ambient")
-if(!dir.exists("cache"))dir.create("cache")
-if(!dir.exists("Rings"))dir.create("Rings")
-
+# if(!dir.exists("output/accli"))dir.create("output/accli")
 
 # HIEv R package will download files to here:
 download.path <- file.path("download/")
 setToPath(download.path)
 
-# More functions
+# Load files with functions
 source("R/functions.R")
 source("R/maespa_functions.R")
 source("R/assign_trees.R")
@@ -54,10 +58,10 @@ source("R/assign_phy.R")
 
 # LAI
 # get lai from hiev
-facelai <-downloadCSV("FACE_P0037_RA_GAPFRACLAI_OPEN_L2.dat")
-names(facelai) <- c("TIMESTAMP","Ring","Date","Gapfraction.mean",
-                    "Rain_mm_Tot.mean","Gapfraction.sd","Rain_mm_Tot.sd",
-                    "Gapfraction.n","Rain_mm_Tot.n","treatment","maxSDring","LAI")
+facelai <- downloadTOA5("FACE_P0037_RA_GAPFRACLAI_OPEN_L2.dat")
+# names(facelai) <- c("TIMESTAMP","Ring","Date","Gapfraction.mean",
+#                    "Rain_mm_Tot.mean","Gapfraction.sd","Rain_mm_Tot.sd",
+#                    "Gapfraction.n","Rain_mm_Tot.n","treatment","maxSDring","LAI")
 
 
 facelai$Date <- as.Date(facelai$Date)
